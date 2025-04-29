@@ -188,7 +188,7 @@ const Home = () => {
                 <h4 className="text-lg font-medium text-gray-900 mb-2">Register</h4>
                 <p className="text-gray-600">Register your hospital, clinic or blood bank on our platform</p>
               </div>
-              <div classNam
+              <div className="text-center">
                 <div className="flex justify-center mb-4">
                   <ClipboardDocumentListIcon className="h-12 w-12 text-red-600" />
                 </div>

@@ -20,11 +20,14 @@ const Navbar = () => {
             <Link to="/" className="text-gray-700 hover:text-red-600 px-3 py-2 rounded-md text-sm font-medium">
               Home
             </Link>
-            <Link to="/" className="text-gray-700 hover:text-red-600 px-3 py-2 rounded-md text-sm font-medium">
+            <Link to="/download-app" className="text-gray-700 hover:text-red-600 px-3 py-2 rounded-md text-sm font-medium">
               Download Mobile App
             </Link>
-            <Link to="/login" className="bg-red-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-white hover:text-red-600 hover:border-2 hover:border-red-600 transition-all duration-200">
-              Login
+            <Link to="/institution/login" className="text-gray-700 hover:text-red-600 px-3 py-2 rounded-md text-sm font-medium">
+              Institution Login
+            </Link>
+            <Link to="/user-type" className="bg-red-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-white hover:text-red-600 hover:border-2 hover:border-red-600 transition-all duration-200">
+              Join Us
             </Link>
           </div>
 
@@ -32,7 +35,7 @@ const Navbar = () => {
           <div className="md:hidden flex items-center">
             <button
               onClick={() => setIsOpen(!isOpen)}
-              className="inline-flex items-center justify-center p-2 rounded-md text-gray-700 hover:text-red-600 focus:outline-none"
+              className="inline-flex items-center justify-center p-2 rounded-md text-gray-700 hover:text-red-600 focus:outline-none bg-white"
             >
               {isOpen ? (
                 <XMarkIcon className="block h-6 w-6" />
@@ -46,19 +49,31 @@ const Navbar = () => {
 
       {/* Mobile Navigation */}
       {isOpen && (
-        <div className="md:hidden">
+        <div className="md:hidden bg-white">
           <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
             <Link
               to="/"
-              className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-red-600"
+              className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-red-600 hover:bg-gray-50"
             >
               Home
             </Link>
             <Link
-              to="/login"
-              className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-red-600"
+              to="/download-app"
+              className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-red-600 hover:bg-gray-50"
             >
-              Login
+              Download Mobile App
+            </Link>
+            <Link
+              to="/institution/login"
+              className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-red-600 hover:bg-gray-50"
+            >
+              Institution Login
+            </Link>
+            <Link
+              to="/user-type"
+              className="block px-3 py-2 rounded-md text-base font-medium text-white bg-red-600 hover:bg-red-700"
+            >
+              Join Us
             </Link>
           </div>
         </div>

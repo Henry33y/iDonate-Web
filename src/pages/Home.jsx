@@ -66,7 +66,7 @@ const Home = () => {
           </p>
           <div className="mt-10">
             <Link
-              to="/login"
+              to="/user-type"
               className="inline-block bg-white py-3 px-8 border border-transparent rounded-md text-base font-medium text-red-600 hover:bg-red-50"
             >
               Get Started

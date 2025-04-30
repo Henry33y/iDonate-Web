@@ -1,0 +1,50 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Helper function to check if user is an admin
+    function isAdmin() {
+      return isAuthenticated() && 
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    // Allow users to read and write their own user document
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // Allow authenticated users to read eligible donors
+    match /users/{userId} {
+      allow read: if isAuthenticated() && resource.data.isEligible == true;
+    }
+    
+    // Allow authenticated users to read and write donations
+    match /donations/{donationId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update, delete: if isAuthenticated() && request.auth.uid == resource.data.userId;
+    }
+
+    // Rules for institutions collection
+    match /institutions/{userId} {
+      // Allow institutions to read and write their own document
+      allow read, write: if isAuthenticated() && request.auth.uid == userId;
+      allow create: if isAuthenticated();
+      
+      // Allow admins to read and update any institution document
+      allow read, update: if isAdmin();
+    }
+
+    // Rules for admins collection
+    match /admins/{adminId} {
+      allow read: if isAdmin();
+      allow write: if false; // Only allow admin creation through backend
+    }
+  }
+} 

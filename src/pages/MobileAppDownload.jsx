@@ -77,7 +77,7 @@ const MobileAppDownload = () => {
           </h3>
           <div className="flex justify-center">
             <img
-              src="https://via.placeholder.com/300x600"
+              src="/src/assets/mobile-app-preview.svg"
               alt="App Screenshot"
               className="rounded-lg shadow-lg"
             />

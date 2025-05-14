@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="600" height="400" viewBox="0 0 600 400" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="600" height="400" fill="#ffffff"/>
+  
+  <!-- Header -->
+  <rect x="0" y="0" width="600" height="60" fill="#dc2626"/>
+  <text x="20" y="38" font-family="Arial" font-size="20" fill="white">iDonate Dashboard</text>
+  
+  <!-- Sidebar -->
+  <rect x="0" y="60" width="150" height="340" fill="#f3f4f6"/>
+  <rect x="10" y="80" width="130" height="40" rx="5" fill="#dc2626" opacity="0.1"/>
+  <text x="20" y="105" font-family="Arial" font-size="14" fill="#374151">Dashboard</text>
+  <rect x="10" y="130" width="130" height="40" rx="5" fill="#ffffff"/>
+  <text x="20" y="155" font-family="Arial" font-size="14" fill="#374151">Blood Requests</text>
+  <rect x="10" y="180" width="130" height="40" rx="5" fill="#ffffff"/>
+  <text x="20" y="205" font-family="Arial" font-size="14" fill="#374151">Donors</text>
+  <rect x="10" y="230" width="130" height="40" rx="5" fill="#ffffff"/>
+  <text x="20" y="255" font-family="Arial" font-size="14" fill="#374151">Inventory</text>
+  
+  <!-- Main Content -->
+  <!-- Stats Cards -->
+  <rect x="170" y="80" width="130" height="100" rx="5" fill="#ffffff" stroke="#e5e7eb"/>
+  <text x="190" y="110" font-family="Arial" font-size="14" fill="#374151">Total Requests</text>
+  <text x="190" y="140" font-family="Arial" font-size="24" font-weight="bold" fill="#dc2626">24</text>
+  
+  <rect x="320" y="80" width="130" height="100" rx="5" fill="#ffffff" stroke="#e5e7eb"/>
+  <text x="340" y="110" font-family="Arial" font-size="14" fill="#374151">Active Donors</text>
+  <text x="340" y="140" font-family="Arial" font-size="24" font-weight="bold" fill="#dc2626">156</text>
+  
+  <rect x="470" y="80" width="130" height="100" rx="5" fill="#ffffff" stroke="#e5e7eb"/>
+  <text x="490" y="110" font-family="Arial" font-size="14" fill="#374151">Blood Units</text>
+  <text x="490" y="140" font-family="Arial" font-size="24" font-weight="bold" fill="#dc2626">89</text>
+  
+  <!-- Recent Requests Table -->
+  <rect x="170" y="200" width="430" height="200" rx="5" fill="#ffffff" stroke="#e5e7eb"/>
+  <text x="190" y="230" font-family="Arial" font-size="16" font-weight="bold" fill="#374151">Recent Blood Requests</text>
+  
+  <!-- Table Headers -->
+  <line x1="170" y1="250" x2="600" y2="250" stroke="#e5e7eb"/>
+  <text x="190" y="270" font-family="Arial" font-size="12" fill="#6b7280">Patient</text>
+  <text x="290" y="270" font-family="Arial" font-size="12" fill="#6b7280">Blood Type</text>
+  <text x="390" y="270" font-family="Arial" font-size="12" fill="#6b7280">Units</text>
+  <text x="490" y="270" font-family="Arial" font-size="12" fill="#6b7280">Status</text>
+  
+  <!-- Table Rows -->
+  <line x1="170" y1="290" x2="600" y2="290" stroke="#e5e7eb"/>
+  <text x="190" y="310" font-family="Arial" font-size="12" fill="#374151">John Doe</text>
+  <text x="290" y="310" font-family="Arial" font-size="12" fill="#374151">O+</text>
+  <text x="390" y="310" font-family="Arial" font-size="12" fill="#374151">2</text>
+  <text x="490" y="310" font-family="Arial" font-size="12" fill="#dc2626">Urgent</text>
+  
+  <line x1="170" y1="330" x2="600" y2="330" stroke="#e5e7eb"/>
+  <text x="190" y="350" font-family="Arial" font-size="12" fill="#374151">Jane Smith</text>
+  <text x="290" y="350" font-family="Arial" font-size="12" fill="#374151">A-</text>
+  <text x="390" y="350" font-family="Arial" font-size="12" fill="#374151">1</text>
+  <text x="490" y="350" font-family="Arial" font-size="12" fill="#059669">Fulfilled</text>
+</svg> 

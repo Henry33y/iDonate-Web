@@ -3,6 +3,7 @@ import { getPendingInstitutions, updateInstitutionStatus } from '../services/fir
 import { logoutAdmin } from '../services/authService';
 import { useNavigate } from 'react-router-dom';
 import { BuildingOfficeIcon, DocumentIcon, XMarkIcon, ArrowDownTrayIcon } from '@heroicons/react/24/outline';
+import { supabase } from '../config/supabase';
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
@@ -18,6 +19,7 @@ const AdminDashboard = () => {
   const fetchPendingInstitutions = async () => {
     try {
       const pendingInstitutions = await getPendingInstitutions();
+      console.log('Fetched pending institutions:', pendingInstitutions.length);
       setInstitutions(pendingInstitutions);
     } catch (error) {
       setError(error.message);
@@ -43,20 +45,25 @@ const AdminDashboard = () => {
 
   const handleDownloadDocument = async (url, filename) => {
     try {
-      // Fetch the file
-      const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error('Failed to download document');
+      // Extract the file path from the URL
+      const filePath = url.split('/').pop();
+      const fullPath = `institutions/${filePath}`;
+
+      console.log('Downloading file:', { fullPath, filename });
+
+      // Download the file from Supabase storage
+      const { data, error } = await supabase.storage
+        .from('idonate')
+        .download(fullPath);
+
+      if (error) {
+        console.error('Download error:', error);
+        throw new Error(`Download failed: ${error.message}`);
       }
 
-      // Get the blob
-      const blob = await response.blob();
+      // Create a blob from the downloaded data
+      const blob = new Blob([data], { type: 'application/pdf' });
       
-      // Verify the blob is not empty
-      if (blob.size === 0) {
-        throw new Error('Downloaded file is empty');
-      }
-
       // Create download link
       const downloadUrl = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -69,7 +76,6 @@ const AdminDashboard = () => {
       document.body.removeChild(link);
       window.URL.revokeObjectURL(downloadUrl);
 
-      // Log success
       console.log('Download successful:', {
         filename,
         size: blob.size,
@@ -165,20 +171,23 @@ const AdminDashboard = () => {
                   <dl className="space-y-4">
                     <div>
                       <dt className="text-sm font-medium text-gray-500">Type</dt>
-                      <dd className="mt-1 text-sm text-gray-900">{selectedInstitution.type}</dd>
+                      <dd className="mt-1 text-sm text-gray-900">{selectedInstitution.type || 'Not specified'}</dd>
                     </div>
                     <div>
                       <dt className="text-sm font-medium text-gray-500">Email</dt>
-                      <dd className="mt-1 text-sm text-gray-900">{selectedInstitution.email}</dd>
+                      <dd className="mt-1 text-sm text-gray-900">{selectedInstitution.email || 'Not specified'}</dd>
                     </div>
                     <div>
                       <dt className="text-sm font-medium text-gray-500">Phone</dt>
-                      <dd className="mt-1 text-sm text-gray-900">{selectedInstitution.phone}</dd>
+                      <dd className="mt-1 text-sm text-gray-900">{selectedInstitution.phone || 'Not specified'}</dd>
                     </div>
                     <div>
                       <dt className="text-sm font-medium text-gray-500">Location</dt>
                       <dd className="mt-1 text-sm text-gray-900">
-                        {selectedInstitution.location.city}, {selectedInstitution.location.region}
+                        {selectedInstitution.location ? 
+                          `${selectedInstitution.location.city || ''}, ${selectedInstitution.location.region || ''}` :
+                          'Location not specified'
+                        }
                       </dd>
                     </div>
                     {selectedInstitution.website && (
@@ -199,7 +208,10 @@ const AdminDashboard = () => {
                     <div>
                       <dt className="text-sm font-medium text-gray-500">Contact Person</dt>
                       <dd className="mt-1 text-sm text-gray-900">
-                        {selectedInstitution.contactPerson.name} ({selectedInstitution.contactPerson.role})
+                        {selectedInstitution.contactPerson ? 
+                          `${selectedInstitution.contactPerson.name || ''} (${selectedInstitution.contactPerson.role || ''})` :
+                          'Not specified'
+                        }
                       </dd>
                     </div>
                   </dl>

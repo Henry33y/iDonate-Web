@@ -217,7 +217,7 @@ const Home = () => {
             <div className="flex justify-center">
               <div className="relative">
                 <img
-                  src="https://via.placeholder.com/300x600"
+                  src="/src/assets/mobile-app-preview.svg"
                   alt="Mobile App Preview"
                   className="rounded-lg shadow-lg"
                 />
@@ -230,7 +230,7 @@ const Home = () => {
                   Our intuitive dashboard provides hospitals, clinics, and blood banks with powerful tools to manage their blood supply chain efficiently.
                 </p>
                 <img
-                  src="https://via.placeholder.com/600x400"
+                  src="/src/assets/dashboard-preview.svg"
                   alt="Dashboard Preview"
                   className="rounded-lg shadow-lg"
                 />
@@ -325,12 +325,12 @@ const Home = () => {
           </div>
           <div className="mt-8 flex justify-center gap-4">
             <img
-              src="https://via.placeholder.com/150x50"
+              src="/src/assets/app_store.jpeg"
               alt="App Store"
               className="h-12"
             />
             <img
-              src="https://via.placeholder.com/150x50"
+              src="/src/assets/play_store.jpeg"
               alt="Google Play"
               className="h-12"
             />

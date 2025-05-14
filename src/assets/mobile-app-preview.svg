@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="300" height="600" viewBox="0 0 300 600" xmlns="http://www.w3.org/2000/svg">
+  <!-- Phone Frame -->
+  <rect x="10" y="10" width="280" height="580" rx="30" fill="#ffffff" stroke="#e5e7eb"/>
+  <rect x="20" y="20" width="260" height="560" rx="25" fill="#ffffff"/>
+  
+  <!-- Status Bar -->
+  <rect x="20" y="20" width="260" height="30" rx="25" fill="#dc2626"/>
+  <text x="40" y="40" font-family="Arial" font-size="14" fill="white">iDonate</text>
+  
+  <!-- Main Content -->
+  <!-- Hero Section -->
+  <rect x="20" y="60" width="260" height="120" rx="10" fill="#dc2626" opacity="0.1"/>
+  <text x="40" y="90" font-family="Arial" font-size="18" font-weight="bold" fill="#374151">Blood Requests</text>
+  <text x="40" y="115" font-family="Arial" font-size="14" fill="#6b7280">Find and respond to urgent needs</text>
+  
+  <!-- Quick Actions -->
+  <rect x="20" y="190" width="260" height="80" rx="10" fill="#ffffff" stroke="#e5e7eb"/>
+  <text x="40" y="220" font-family="Arial" font-size="16" font-weight="bold" fill="#374151">Quick Actions</text>
+  <rect x="40" y="240" width="100" height="20" rx="5" fill="#dc2626"/>
+  <text x="50" y="255" font-family="Arial" font-size="12" fill="white">Donate Now</text>
+  <rect x="160" y="240" width="100" height="20" rx="5" fill="#ffffff" stroke="#dc2626"/>
+  <text x="170" y="255" font-family="Arial" font-size="12" fill="#dc2626">Find Donors</text>
+  
+  <!-- Recent Requests -->
+  <rect x="20" y="280" width="260" height="300" rx="10" fill="#ffffff" stroke="#e5e7eb"/>
+  <text x="40" y="310" font-family="Arial" font-size="16" font-weight="bold" fill="#374151">Recent Requests</text>
+  
+  <!-- Request Card 1 -->
+  <rect x="40" y="330" width="220" height="80" rx="5" fill="#ffffff" stroke="#e5e7eb"/>
+  <text x="50" y="350" font-family="Arial" font-size="14" font-weight="bold" fill="#374151">Emergency Need</text>
+  <text x="50" y="370" font-family="Arial" font-size="12" fill="#6b7280">O+ Blood Type Required</text>
+  <text x="50" y="390" font-family="Arial" font-size="12" fill="#dc2626">Urgent - 2 units needed</text>
+  
+  <!-- Request Card 2 -->
+  <rect x="40" y="420" width="220" height="80" rx="5" fill="#ffffff" stroke="#e5e7eb"/>
+  <text x="50" y="440" font-family="Arial" font-size="14" font-weight="bold" fill="#374151">Scheduled Surgery</text>
+  <text x="50" y="460" font-family="Arial" font-size="12" fill="#6b7280">A- Blood Type Required</text>
+  <text x="50" y="480" font-family="Arial" font-size="12" fill="#059669">Scheduled - 1 unit needed</text>
+  
+  <!-- Navigation Bar -->
+  <rect x="20" y="550" width="260" height="30" rx="15" fill="#f3f4f6"/>
+  <text x="40" y="570" font-family="Arial" font-size="12" fill="#374151">Home</text>
+  <text x="120" y="570" font-family="Arial" font-size="12" fill="#374151">Requests</text>
+  <text x="200" y="570" font-family="Arial" font-size="12" fill="#374151">Profile</text>
+</svg> 

@@ -6,6 +6,7 @@ export const createInstitutionProfile = async (userId, institutionData) => {
     const institutionRef = doc(db, 'institutions', userId);
     await setDoc(institutionRef, {
       ...institutionData,
+      userId: userId,
       status: 'pending',
       createdAt: serverTimestamp(),
       accountType: 'institution'

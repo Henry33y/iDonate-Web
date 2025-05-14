@@ -7,7 +7,7 @@ import { toast } from 'react-toastify';
 import { registerInstitution } from '../services/authService';
 import { createInstitutionProfile } from '../services/firestoreService';
 import { BuildingOfficeIcon, DocumentIcon } from '@heroicons/react/24/outline';
-import { uploadInstitutionDocument } from '../services/cloudinaryService';
+import { uploadInstitutionDocument } from '../services/storageService';
 
 const schema = yup.object().shape({
   name: yup.string().required('Institution name is required'),
@@ -97,76 +97,37 @@ const InstitutionRegistration = () => {
   };
 
   const onSubmit = async (data) => {
-    if (!selectedFile) {
-      toast.error('Please upload an accreditation document');
-      return;
-    }
-
-    setIsLoading(true);
-    setUploadProgress(0);
-
     try {
-      // Step 1: Create auth user
-      setUploadProgress(10);
-      const user = await registerInstitution(data.email, data.password);
-      setUploadProgress(30);
-
-      // Step 2: Upload document to Cloudinary
-      setUploadProgress(40);
-      const cloudinaryResult = await uploadInstitutionDocument(selectedFile);
-      setUploadProgress(60);
-
-      // Step 3: Create institution profile
-      const institutionData = {
-        name: data.name,
-        type: data.type,
-        email: data.email,
-        phone: data.phone,
-        location: {
-          region: data.region,
-          city: data.city,
-        },
-        website: data.website,
-        contactPerson: {
-          name: data.contactPerson.name,
-          role: data.contactPerson.role,
-        },
-        documents: {
-          license: {
-            url: cloudinaryResult.url,
-            publicId: cloudinaryResult.publicId,
-            type: selectedFile.type,
-            name: selectedFile.name
-          }
-        },
-      };
-
-      await createInstitutionProfile(user.uid, institutionData);
-      setUploadProgress(100);
-
-      // Show success message
-      toast.success('Registration successful! Your account is under review.');
+      setIsLoading(true);
       
-      // Reset form and navigate
-      reset();
-      setSelectedFile(null);
-      navigate('/under-review');
+      // Register the institution
+      const user = await registerInstitution(data.email, data.password);
+      
+      // Upload document if selected
+      let documentUrl = null;
+      if (selectedFile) {
+        documentUrl = await uploadInstitutionDocument(selectedFile, user.uid);
+      }
+      
+      // Create institution profile
+      await createInstitutionProfile(user.uid, {
+        ...data,
+        documents: documentUrl ? {
+          license: {
+            name: selectedFile.name,
+            type: selectedFile.type,
+            url: documentUrl
+          }
+        } : null
+      });
+      
+      toast.success('Registration successful! Please wait for admin approval.');
+      navigate('/institution/login');
     } catch (error) {
       console.error('Registration error:', error);
-      
-      // Handle specific error cases
-      if (error.code === 'auth/email-already-in-use') {
-        toast.error('This email is already registered. Please use a different email or try logging in.');
-      } else if (error.code === 'auth/weak-password') {
-        toast.error('Please use a stronger password.');
-      } else if (error.code === 'auth/invalid-email') {
-        toast.error('Please enter a valid email address.');
-      } else {
-        toast.error(error.message || 'An error occurred during registration. Please try again.');
-      }
+      toast.error(error.message || 'Registration failed. Please try again.');
     } finally {
       setIsLoading(false);
-      setUploadProgress(0);
     }
   };
 
@@ -409,32 +370,6 @@ const InstitutionRegistration = () => {
                 </p>
               )}
             </div>
-
-            {/* Progress Bar */}
-            {isLoading && (
-              <div className="mt-4">
-                <div className="relative pt-1">
-                  <div className="flex mb-2 items-center justify-between">
-                    <div>
-                      <span className="text-xs font-semibold inline-block py-1 px-2 uppercase rounded-full text-red-600 bg-red-200">
-                        Progress
-                      </span>
-                    </div>
-                    <div className="text-right">
-                      <span className="text-xs font-semibold inline-block text-red-600">
-                        {uploadProgress}%
-                      </span>
-                    </div>
-                  </div>
-                  <div className="overflow-hidden h-2 mb-4 text-xs flex rounded bg-red-200">
-                    <div
-                      style={{ width: `${uploadProgress}%` }}
-                      className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-red-600 transition-all duration-500"
-                    ></div>
-                  </div>
-                </div>
-              </div>
-            )}
 
             {/* Submit Button */}
             <div>

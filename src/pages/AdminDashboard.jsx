@@ -232,16 +232,36 @@ const AdminDashboard = () => {
                           </p>
                         </div>
                       </div>
-                      <button
-                        onClick={() => handleDownloadDocument(
-                          selectedInstitution.documents.license.url,
-                          selectedInstitution.documents.license.name
-                        )}
-                        className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700"
-                      >
-                        <ArrowDownTrayIcon className="h-5 w-5 mr-2" />
-                        Download Document
-                      </button>
+                      {/* PDF Preview */}
+                      <div className="mb-4">
+                        <iframe
+                          src={selectedInstitution.documents.license.url}
+                          title="PDF Preview"
+                          width="100%"
+                          height="300px"
+                          style={{ border: '1px solid #e5e7eb', borderRadius: '8px' }}
+                        />
+                      </div>
+                      <div className="flex gap-3">
+                        <a
+                          href={selectedInstitution.documents.license.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-gray-600 hover:bg-gray-700"
+                        >
+                          View in New Tab
+                        </a>
+                        <button
+                          onClick={() => handleDownloadDocument(
+                            selectedInstitution.documents.license.url,
+                            selectedInstitution.documents.license.name
+                          )}
+                          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700"
+                        >
+                          <ArrowDownTrayIcon className="h-5 w-5 mr-2" />
+                          Download Document
+                        </button>
+                      </div>
                     </div>
                   ) : (
                     <p className="text-sm text-gray-500">No document uploaded</p>

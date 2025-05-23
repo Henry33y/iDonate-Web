@@ -12,6 +12,7 @@ export default defineConfig({
     allowedHosts: [
       'localhost',
       '127.0.0.1',
+      'idonate-web.onrender.com',
       /\.ngrok-free\.app$/
     ],
   },

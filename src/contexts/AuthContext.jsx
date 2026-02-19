@@ -1,12 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react';
-import { 
-  signInWithEmailAndPassword, 
-  signInWithPopup, 
-  GoogleAuthProvider,
-  signOut,
-  onAuthStateChanged
-} from 'firebase/auth';
-import { auth } from '../firebase';
+import { supabase } from '../config/supabase';
 import { toast } from 'react-toastify';
 
 const AuthContext = createContext();
@@ -18,20 +11,28 @@ export function useAuth() {
 export function AuthProvider({ children }) {
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const googleProvider = new GoogleAuthProvider();
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setCurrentUser(user);
+    // Get initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setCurrentUser(session?.user ?? null);
       setLoading(false);
     });
 
-    return unsubscribe;
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        setCurrentUser(session?.user ?? null);
+      }
+    );
+
+    return () => subscription.unsubscribe();
   }, []);
 
   async function login(email, password) {
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
       toast.success('Successfully logged in!');
     } catch (error) {
       toast.error('Failed to login: ' + error.message);
@@ -41,8 +42,14 @@ export function AuthProvider({ children }) {
 
   async function loginWithGoogle() {
     try {
-      await signInWithPopup(auth, googleProvider);
-      toast.success('Successfully logged in with Google!');
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: window.location.origin + '/dashboard',
+        },
+      });
+      if (error) throw error;
+      toast.success('Redirecting to Google...');
     } catch (error) {
       toast.error('Failed to login with Google: ' + error.message);
       throw error;
@@ -51,7 +58,8 @@ export function AuthProvider({ children }) {
 
   async function logout() {
     try {
-      await signOut(auth);
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
       toast.success('Successfully logged out!');
     } catch (error) {
       toast.error('Failed to logout: ' + error.message);
@@ -63,7 +71,7 @@ export function AuthProvider({ children }) {
     currentUser,
     login,
     loginWithGoogle,
-    logout
+    logout,
   };
 
   return (
@@ -71,4 +79,4 @@ export function AuthProvider({ children }) {
       {!loading && children}
     </AuthContext.Provider>
   );
-} 
+}

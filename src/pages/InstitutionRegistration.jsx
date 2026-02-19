@@ -5,7 +5,7 @@ import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import { toast } from 'react-toastify';
 import { registerInstitution } from '../services/authService';
-import { createInstitutionProfile } from '../services/firestoreService';
+import { createInstitutionProfile } from '../services/supabaseService';
 import { BuildingOfficeIcon, DocumentIcon } from '@heroicons/react/24/outline';
 import { uploadInstitutionDocument } from '../services/storageService';
 
@@ -99,18 +99,18 @@ const InstitutionRegistration = () => {
   const onSubmit = async (data) => {
     try {
       setIsLoading(true);
-      
+
       // Register the institution
       const user = await registerInstitution(data.email, data.password);
-      
+
       // Upload document if selected
       let documentUrl = null;
       if (selectedFile) {
-        documentUrl = await uploadInstitutionDocument(selectedFile, user.uid);
+        documentUrl = await uploadInstitutionDocument(selectedFile, user.id);
       }
-      
+
       // Create institution profile
-      await createInstitutionProfile(user.uid, {
+      await createInstitutionProfile(user.id, {
         ...data,
         documents: documentUrl ? {
           license: {
@@ -120,7 +120,7 @@ const InstitutionRegistration = () => {
           }
         } : null
       });
-      
+
       toast.success('Registration successful! Please wait for admin approval.');
       navigate('/institution/login');
     } catch (error) {

@@ -20,7 +20,7 @@ const Dashboard = () => {
     // Fetch blood requests for the institution
     const fetchBloodRequests = async () => {
       try {
-        // TODO: Implement Firebase fetch
+        // TODO: Implement Supabase fetch for blood requests
         setBloodRequests([]);
       } catch (error) {
         toast.error('Failed to fetch blood requests');
@@ -213,44 +213,40 @@ const Dashboard = () => {
           <nav className="mt-8">
             <button
               onClick={() => setActiveTab('home')}
-              className={`flex items-center px-4 py-2 text-sm font-medium w-full ${
-                activeTab === 'home'
+              className={`flex items-center px-4 py-2 text-sm font-medium w-full ${activeTab === 'home'
                   ? 'bg-red-50 text-red-600'
                   : 'text-gray-600 hover:bg-gray-50'
-              }`}
+                }`}
             >
               <HomeIcon className="h-5 w-5 mr-3" />
               Home
             </button>
             <button
               onClick={() => setActiveTab('create')}
-              className={`flex items-center px-4 py-2 text-sm font-medium w-full ${
-                activeTab === 'create'
+              className={`flex items-center px-4 py-2 text-sm font-medium w-full ${activeTab === 'create'
                   ? 'bg-red-50 text-red-600'
                   : 'text-gray-600 hover:bg-gray-50'
-              }`}
+                }`}
             >
               <PlusIcon className="h-5 w-5 mr-3" />
               Create Request
             </button>
             <button
               onClick={() => setActiveTab('requests')}
-              className={`flex items-center px-4 py-2 text-sm font-medium w-full ${
-                activeTab === 'requests'
+              className={`flex items-center px-4 py-2 text-sm font-medium w-full ${activeTab === 'requests'
                   ? 'bg-red-50 text-red-600'
                   : 'text-gray-600 hover:bg-gray-50'
-              }`}
+                }`}
             >
               <ClipboardDocumentListIcon className="h-5 w-5 mr-3" />
               Manage Requests
             </button>
             <button
               onClick={() => setActiveTab('profile')}
-              className={`flex items-center px-4 py-2 text-sm font-medium w-full ${
-                activeTab === 'profile'
+              className={`flex items-center px-4 py-2 text-sm font-medium w-full ${activeTab === 'profile'
                   ? 'bg-red-50 text-red-600'
                   : 'text-gray-600 hover:bg-gray-50'
-              }`}
+                }`}
             >
               <UserCircleIcon className="h-5 w-5 mr-3" />
               Profile

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getPendingInstitutions, updateInstitutionStatus } from '../services/firestoreService';
+import { getPendingInstitutions, updateInstitutionStatus } from '../services/supabaseService';
 import { logoutAdmin } from '../services/authService';
 import { useNavigate } from 'react-router-dom';
 import { BuildingOfficeIcon, DocumentIcon, XMarkIcon, ArrowDownTrayIcon } from '@heroicons/react/24/outline';
@@ -63,13 +63,13 @@ const AdminDashboard = () => {
 
       // Create a blob from the downloaded data
       const blob = new Blob([data], { type: 'application/pdf' });
-      
+
       // Create download link
       const downloadUrl = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = downloadUrl;
       link.download = filename;
-      
+
       // Add to document, click, and cleanup
       document.body.appendChild(link);
       link.click();
@@ -184,7 +184,7 @@ const AdminDashboard = () => {
                     <div>
                       <dt className="text-sm font-medium text-gray-500">Location</dt>
                       <dd className="mt-1 text-sm text-gray-900">
-                        {selectedInstitution.location ? 
+                        {selectedInstitution.location ?
                           `${selectedInstitution.location.city || ''}, ${selectedInstitution.location.region || ''}` :
                           'Location not specified'
                         }
@@ -208,7 +208,7 @@ const AdminDashboard = () => {
                     <div>
                       <dt className="text-sm font-medium text-gray-500">Contact Person</dt>
                       <dd className="mt-1 text-sm text-gray-900">
-                        {selectedInstitution.contactPerson ? 
+                        {selectedInstitution.contactPerson ?
                           `${selectedInstitution.contactPerson.name || ''} (${selectedInstitution.contactPerson.role || ''})` :
                           'Not specified'
                         }

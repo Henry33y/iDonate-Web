@@ -17,6 +17,7 @@ const schema = yup.object().shape({
   region: yup.string().required('Region is required'),
   city: yup.string().required('City is required'),
   website: yup.string().optional(),
+  licenseNumber: yup.string().required('License number is required'),
   contactPerson: yup.object().shape({
     name: yup.string().required('Contact person name is required'),
     role: yup.string().required('Contact person role is required'),
@@ -251,19 +252,35 @@ const InstitutionRegistration = () => {
               </div>
             </div>
 
-            {/* Website */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Website (Optional)
-              </label>
-              <input
-                type="url"
-                {...register('website')}
-                className="mt-1 block w-full rounded-md border border-gray-300 px-4 py-2 shadow-sm focus:border-red-500 focus:ring-red-500 bg-white text-gray-900"
-              />
-              {errors.website && (
-                <p className="mt-1 text-sm text-red-600">{errors.website.message}</p>
-              )}
+            {/* Website & License Number */}
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  Website (Optional)
+                </label>
+                <input
+                  type="url"
+                  {...register('website')}
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-4 py-2 shadow-sm focus:border-red-500 focus:ring-red-500 bg-white text-gray-900"
+                />
+                {errors.website && (
+                  <p className="mt-1 text-sm text-red-600">{errors.website.message}</p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  License Number
+                </label>
+                <input
+                  type="text"
+                  {...register('licenseNumber')}
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-4 py-2 shadow-sm focus:border-red-500 focus:ring-red-500 bg-white text-gray-900"
+                />
+                {errors.licenseNumber && (
+                  <p className="mt-1 text-sm text-red-600">{errors.licenseNumber.message}</p>
+                )}
+              </div>
             </div>
 
             {/* Contact Person */}

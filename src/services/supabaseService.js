@@ -19,6 +19,7 @@ export const createInstitutionProfile = async (userId, institutionData) => {
                 contact_person_name: institutionData.contactPerson?.name || null,
                 contact_person_role: institutionData.contactPerson?.role || null,
                 status: 'pending',
+                license_number: institutionData.licenseNumber || null,
                 documents: institutionData.documents || null,
             });
 

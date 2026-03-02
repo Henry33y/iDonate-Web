@@ -119,9 +119,10 @@ export const getPendingInstitutions = async () => {
 
 export const updateInstitutionStatus = async (institutionId, status) => {
     try {
+        const verified = status === 'approved';
         const { error } = await supabase
             .from('institutions')
-            .update({ status })
+            .update({ status, verified })
             .eq('id', institutionId);
 
         if (error) throw error;

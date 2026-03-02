@@ -6,7 +6,7 @@ import * as yup from 'yup';
 import { toast } from 'react-toastify';
 import { registerInstitution } from '../services/authService';
 import { createInstitutionProfile } from '../services/supabaseService';
-import { BuildingOfficeIcon, DocumentIcon } from '@heroicons/react/24/outline';
+import { BuildingOfficeIcon, DocumentIcon, XCircleIcon, ArrowUpTrayIcon } from '@heroicons/react/24/outline';
 import { uploadInstitutionDocument } from '../services/storageService';
 
 const schema = yup.object().shape({
@@ -69,6 +69,7 @@ const InstitutionRegistration = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
 
   const {
     register,
@@ -80,21 +81,45 @@ const InstitutionRegistration = () => {
     mode: 'onChange',
   });
 
-  const handleFileChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      // Check file size (max 10MB)
-      if (file.size > 10 * 1024 * 1024) {
-        toast.error('File size must be less than 10MB');
-        return;
-      }
-
-      if (file.type === 'application/pdf' || file.type.startsWith('image/')) {
-        setSelectedFile(file);
-      } else {
-        toast.error('Please upload a PDF or image file');
-      }
+  const validateAndSetFile = (file) => {
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('File size must be less than 10MB');
+      return;
     }
+    if (file.type === 'application/pdf' || file.type.startsWith('image/')) {
+      setSelectedFile(file);
+    } else {
+      toast.error('Please upload a PDF or image file');
+    }
+  };
+
+  const handleFileChange = (e) => {
+    validateAndSetFile(e.target.files[0]);
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    const file = e.dataTransfer.files[0];
+    validateAndSetFile(file);
+  };
+
+  const removeFile = () => {
+    setSelectedFile(null);
   };
 
   const onSubmit = async (data) => {
@@ -356,36 +381,56 @@ const InstitutionRegistration = () => {
               <label className="block text-sm font-medium text-gray-700">
                 Accreditation Document
               </label>
-              <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md bg-white">
-                <div className="space-y-1 text-center">
-                  <DocumentIcon className="mx-auto h-12 w-12 text-gray-400" />
-                  <div className="flex text-sm text-gray-600">
-                    <label
-                      htmlFor="file-upload"
-                      className="relative cursor-pointer bg-white rounded-md font-medium text-red-600 hover:text-red-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-red-500 px-4 py-2 border border-gray-300"
+              <div
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                className={`mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-dashed rounded-md transition-colors duration-200 ${isDragging
+                    ? 'border-red-500 bg-red-50'
+                    : 'border-gray-300 bg-white hover:border-gray-400'
+                  }`}
+              >
+                {selectedFile ? (
+                  <div className="flex items-center space-x-3">
+                    <DocumentIcon className="h-8 w-8 text-red-600 flex-shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-gray-900 truncate">{selectedFile.name}</p>
+                      <p className="text-xs text-gray-500">{(selectedFile.size / 1024 / 1024).toFixed(2)} MB</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={removeFile}
+                      className="flex-shrink-0 text-gray-400 hover:text-red-600 transition-colors"
                     >
-                      <span>Upload a file</span>
-                      <input
-                        id="file-upload"
-                        name="file-upload"
-                        type="file"
-                        className="sr-only"
-                        onChange={handleFileChange}
-                        accept=".pdf,image/*"
-                      />
-                    </label>
-                    <p className="pl-1">or drag and drop</p>
+                      <XCircleIcon className="h-6 w-6" />
+                    </button>
                   </div>
-                  <p className="text-xs text-gray-500">
-                    PDF or image files up to 10MB
-                  </p>
-                </div>
+                ) : (
+                  <div className="space-y-2 text-center">
+                    <ArrowUpTrayIcon className={`mx-auto h-12 w-12 transition-colors duration-200 ${isDragging ? 'text-red-500' : 'text-gray-400'}`} />
+                    <div className="flex text-sm text-gray-600">
+                      <label
+                        htmlFor="file-upload"
+                        className="relative cursor-pointer bg-white rounded-md font-medium text-red-600 hover:text-red-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-red-500 px-4 py-2 border border-gray-300"
+                      >
+                        <span>Upload a file</span>
+                        <input
+                          id="file-upload"
+                          name="file-upload"
+                          type="file"
+                          className="sr-only"
+                          onChange={handleFileChange}
+                          accept=".pdf,image/*"
+                        />
+                      </label>
+                      <p className="pl-1 self-center">or drag and drop</p>
+                    </div>
+                    <p className="text-xs text-gray-500">
+                      PDF or image files up to 10MB
+                    </p>
+                  </div>
+                )}
               </div>
-              {selectedFile && (
-                <p className="mt-2 text-sm text-gray-600">
-                  Selected file: {selectedFile.name}
-                </p>
-              )}
             </div>
 
             {/* Submit Button */}

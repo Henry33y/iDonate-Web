@@ -1,4 +1,5 @@
 import { ArrowDownTrayIcon, DevicePhoneMobileIcon, HeartIcon, UserPlusIcon } from '@heroicons/react/24/outline';
+import mobileAppPreview from '../assets/mobile-app-preview.svg';
 
 const MobileAppDownload = () => {
   return (
@@ -77,7 +78,7 @@ const MobileAppDownload = () => {
           </h3>
           <div className="flex justify-center">
             <img
-              src="/src/assets/mobile-app-preview.svg"
+              src={mobileAppPreview}
               alt="App Screenshot"
               className="rounded-lg shadow-lg"
             />

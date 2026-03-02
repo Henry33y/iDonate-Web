@@ -1,9 +1,13 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import mobileAppPreview from '../assets/mobile-app-preview.svg';
+import dashboardPreview from '../assets/dashboard-preview.svg';
+import appStoreBadge from '../assets/app_store.jpeg';
+import playStoreBadge from '../assets/play_store.jpeg';
 import { ChevronDownIcon } from '@heroicons/react/24/outline';
-import { 
-  UserIcon, 
-  BuildingOfficeIcon, 
+import {
+  UserIcon,
+  BuildingOfficeIcon,
   ArrowDownTrayIcon,
   UserPlusIcon,
   HeartIcon,
@@ -148,7 +152,7 @@ const Home = () => {
           <h2 className="text-3xl font-extrabold text-gray-900 text-center mb-12">
             Simple. Secure. Life-Changing.
           </h2>
-          
+
           {/* Individuals Steps */}
           <div className="mb-16">
             <h3 className="text-xl font-semibold text-gray-900 mb-8 text-center">For Individuals</h3>
@@ -217,7 +221,7 @@ const Home = () => {
             <div className="flex justify-center">
               <div className="relative">
                 <img
-                  src="/src/assets/mobile-app-preview.svg"
+                  src={mobileAppPreview}
                   alt="Mobile App Preview"
                   className="rounded-lg shadow-lg"
                 />
@@ -230,7 +234,7 @@ const Home = () => {
                   Our intuitive dashboard provides hospitals, clinics, and blood banks with powerful tools to manage their blood supply chain efficiently.
                 </p>
                 <img
-                  src="/src/assets/dashboard-preview.svg"
+                  src={dashboardPreview}
                   alt="Dashboard Preview"
                   className="rounded-lg shadow-lg"
                 />
@@ -284,9 +288,8 @@ const Home = () => {
                 >
                   <span className="text-lg font-medium text-gray-900">{faq.question}</span>
                   <ChevronDownIcon
-                    className={`h-5 w-5 text-gray-500 transform transition-transform ${
-                      openFaq === index ? 'rotate-180' : ''
-                    }`}
+                    className={`h-5 w-5 text-gray-500 transform transition-transform ${openFaq === index ? 'rotate-180' : ''
+                      }`}
                   />
                 </button>
                 {openFaq === index && (
@@ -325,12 +328,12 @@ const Home = () => {
           </div>
           <div className="mt-8 flex justify-center gap-4">
             <img
-              src="/src/assets/app_store.jpeg"
+              src={appStoreBadge}
               alt="App Store"
               className="h-12"
             />
             <img
-              src="/src/assets/play_store.jpeg"
+              src={playStoreBadge}
               alt="Google Play"
               className="h-12"
             />

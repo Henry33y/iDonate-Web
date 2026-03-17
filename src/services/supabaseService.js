@@ -15,6 +15,9 @@ export const createInstitutionProfile = async (userId, institutionData) => {
                 address: institutionData.city && institutionData.region
                     ? `${institutionData.city}, ${institutionData.region}`
                     : null,
+                location: (institutionData.latitude != null && institutionData.longitude != null)
+                    ? `POINT(${institutionData.longitude} ${institutionData.latitude})`
+                    : null,
                 website: institutionData.website || null,
                 contact_person_name: institutionData.contactPerson?.name || null,
                 contact_person_role: institutionData.contactPerson?.role || null,

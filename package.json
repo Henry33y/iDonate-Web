@@ -14,9 +14,11 @@
     "@hookform/resolvers": "^5.0.1",
     "@supabase/supabase-js": "^2.49.4",
     "axios": "^1.9.0",
+    "leaflet": "^1.9.4",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-hook-form": "^7.56.1",
+    "react-leaflet": "^4.2.1",
     "react-router-dom": "^6.22.0",
     "react-toastify": "^10.0.6",
     "yup": "^1.6.1"

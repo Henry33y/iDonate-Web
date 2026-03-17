@@ -8,6 +8,7 @@ import { registerInstitution } from '../services/authService';
 import { createInstitutionProfile } from '../services/supabaseService';
 import { BuildingOfficeIcon, DocumentIcon, XCircleIcon, ArrowUpTrayIcon } from '@heroicons/react/24/outline';
 import { uploadInstitutionDocument } from '../services/storageService';
+import LocationPicker from '../components/LocationPicker';
 
 const schema = yup.object().shape({
   name: yup.string().required('Institution name is required'),
@@ -69,6 +70,7 @@ const InstitutionRegistration = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [location, setLocation] = useState(null); // { latitude, longitude, locationName }
   const [isDragging, setIsDragging] = useState(false);
 
   const {
@@ -135,9 +137,11 @@ const InstitutionRegistration = () => {
         documentUrl = await uploadInstitutionDocument(selectedFile, user.id);
       }
 
-      // Create institution profile
+      // Create institution profile (include location from picker)
       await createInstitutionProfile(user.id, {
         ...data,
+        latitude: location?.latitude ?? null,
+        longitude: location?.longitude ?? null,
         documents: documentUrl ? {
           license: {
             name: selectedFile.name,
@@ -275,6 +279,14 @@ const InstitutionRegistration = () => {
                   <p className="mt-1 text-sm text-red-600">{errors.city.message}</p>
                 )}
               </div>
+            </div>
+
+            {/* Location Picker — GPS or Map */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Institution Location
+              </label>
+              <LocationPicker onChange={setLocation} />
             </div>
 
             {/* Website & License Number */}

@@ -133,3 +133,182 @@ export const updateInstitutionStatus = async (institutionId, status) => {
         throw new Error(error.message);
     }
 };
+
+// ─── Blood Request Functions ────────────────────────────────────────
+
+/** Fetch all blood requests for an institution */
+export const getInstitutionRequests = async (institutionId) => {
+    const { data, error } = await supabase
+        .from('blood_requests')
+        .select('*')
+        .eq('requester_id', institutionId)
+        .order('created_at', { ascending: false });
+
+    if (error) throw new Error(error.message);
+    return data || [];
+};
+
+/** Create a new blood request */
+export const createBloodRequest = async (requestData) => {
+    const { data, error } = await supabase
+        .from('blood_requests')
+        .insert(requestData)
+        .select()
+        .single();
+
+    if (error) throw new Error(error.message);
+    return data;
+};
+
+/** Update blood request status */
+export const updateBloodRequestStatus = async (requestId, status) => {
+    const { data, error } = await supabase
+        .from('blood_requests')
+        .update({ status })
+        .eq('id', requestId)
+        .select()
+        .single();
+
+    if (error) throw new Error(error.message);
+    return data;
+};
+
+/** Delete a blood request */
+export const deleteBloodRequest = async (requestId) => {
+    const { error } = await supabase
+        .from('blood_requests')
+        .delete()
+        .eq('id', requestId);
+
+    if (error) throw new Error(error.message);
+};
+
+/** Get dashboard stats for an institution */
+export const getInstitutionStats = async (institutionId) => {
+    const [requests, donations] = await Promise.all([
+        getInstitutionRequests(institutionId),
+        getInstitutionDonations(institutionId),
+    ]);
+
+    const activeRequests = requests.filter(r => r.status === 'pending').length;
+    const fulfilledRequests = requests.filter(r => r.status === 'fulfilled').length;
+    const totalRequests = requests.length;
+
+    const upcomingDonations = donations.filter(d => d.status === 'scheduled' || d.status === 'confirmed').length;
+    const completedDonations = donations.filter(d => d.status === 'completed').length;
+    const uniqueDonors = new Set(donations.map(d => d.donor_id)).size;
+
+    return { activeRequests, fulfilledRequests, totalRequests, upcomingDonations, completedDonations, uniqueDonors };
+};
+
+// ─── Donation Functions ─────────────────────────────────────────────
+
+/** Fetch all donations for an institution (with donor profiles) */
+export const getInstitutionDonations = async (institutionId) => {
+    const { data, error } = await supabase
+        .from('donations')
+        .select(`
+            *,
+            donors:donor_id (
+                blood_type
+            ),
+            profiles:donor_id (
+                full_name,
+                phone_number,
+                avatar_url
+            ),
+            blood_requests:blood_request_id (
+                blood_type_needed,
+                urgency_level
+            )
+        `)
+        .eq('institution_id', institutionId)
+        .order('scheduled_date', { ascending: false });
+
+    if (error) throw new Error(error.message);
+    return data || [];
+};
+
+/** Update a donation status (confirm, complete, cancel, no_show) */
+export const updateDonationStatus = async (donationId, status, unitsDonated) => {
+    const payload = { status };
+    if (unitsDonated !== undefined) payload.units_donated = unitsDonated;
+
+    const { data, error } = await supabase
+        .from('donations')
+        .update(payload)
+        .eq('id', donationId)
+        .select()
+        .single();
+
+    if (error) throw new Error(error.message);
+    return data;
+};
+
+// ─── Request Editing & Donor Tracking ───────────────────────────────
+
+/** Update a blood request (units, urgency, description) */
+export const updateBloodRequest = async (requestId, updates) => {
+    const { data, error } = await supabase
+        .from('blood_requests')
+        .update(updates)
+        .eq('id', requestId)
+        .select()
+        .single();
+
+    if (error) throw new Error(error.message);
+    return data;
+};
+
+/** Get donors who responded to a specific blood request */
+export const getRequestDonors = async (requestId) => {
+    const { data, error } = await supabase
+        .from('donations')
+        .select(`
+            *,
+            profiles:donor_id (
+                full_name,
+                phone_number,
+                avatar_url
+            )
+        `)
+        .eq('blood_request_id', requestId)
+        .order('created_at', { ascending: false });
+
+    if (error) throw new Error(error.message);
+    return data || [];
+};
+
+// ─── Activity & Profile ─────────────────────────────────────────────
+
+/** Get recent donation activity for an institution */
+export const getRecentActivity = async (institutionId, limit = 20) => {
+    const { data, error } = await supabase
+        .from('donations')
+        .select(`
+            *,
+            profiles:donor_id (
+                full_name,
+                avatar_url
+            )
+        `)
+        .eq('institution_id', institutionId)
+        .order('created_at', { ascending: false })
+        .limit(limit);
+
+    if (error) throw new Error(error.message);
+    return data || [];
+};
+
+/** Update institution profile */
+export const updateInstitutionProfile = async (institutionId, updates) => {
+    const { data, error } = await supabase
+        .from('institutions')
+        .update(updates)
+        .eq('id', institutionId)
+        .select()
+        .single();
+
+    if (error) throw new Error(error.message);
+    return data;
+};

@@ -43,7 +43,8 @@ const Dashboard = () => {
 
   // Create form
   const [formData, setFormData] = useState({
-    blood_type_needed: 'A+', units_needed: 1, urgency_level: 'moderate', patient_name: '', description: '',
+    blood_type_needed: 'A+', units_needed: 1, urgency_level: 'moderate',
+    description: '', date_needed: '', contact_phone: '',
   });
   const [creating, setCreating] = useState(false);
 
@@ -105,11 +106,12 @@ const Dashboard = () => {
         blood_type_needed: formData.blood_type_needed,
         units_needed: parseInt(formData.units_needed, 10),
         urgency_level: formData.urgency_level,
-        patient_name: formData.patient_name || null,
         description: formData.description || null,
+        date_needed: formData.date_needed || null,
+        contact_phone: formData.contact_phone || null,
       });
       toast.success('Blood request created!');
-      setFormData({ blood_type_needed: 'A+', units_needed: 1, urgency_level: 'moderate', patient_name: '', description: '' });
+      setFormData({ blood_type_needed: 'A+', units_needed: 1, urgency_level: 'moderate', description: '', date_needed: '', contact_phone: '' });
       await loadDashboardData();
       setActiveTab('requests');
     } catch (error) {
@@ -336,22 +338,29 @@ const Dashboard = () => {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Urgency Level</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Urgency Level *</label>
                     <select value={formData.urgency_level} onChange={e => setFormData(p => ({ ...p, urgency_level: e.target.value }))}
                       className="w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:border-red-500 focus:ring-red-500 bg-white text-gray-900">
                       {URGENCY_LEVELS.map(u => <option key={u} value={u}>{u.charAt(0).toUpperCase() + u.slice(1)}</option>)}
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Patient Name</label>
-                    <input type="text" value={formData.patient_name} onChange={e => setFormData(p => ({ ...p, patient_name: e.target.value }))}
-                      placeholder="Optional" className="w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:border-red-500 focus:ring-red-500 text-gray-900" />
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Date Needed</label>
+                    <input type="date" value={formData.date_needed}
+                      onChange={e => setFormData(p => ({ ...p, date_needed: e.target.value }))}
+                      min={new Date().toISOString().split('T')[0]}
+                      className="w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:border-red-500 focus:ring-red-500 text-gray-900" />
                   </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Alternative Contact (Phone)</label>
+                  <input type="tel" value={formData.contact_phone} onChange={e => setFormData(p => ({ ...p, contact_phone: e.target.value }))}
+                    placeholder="Optional — e.g. +1 234 567 8900" className="w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:border-red-500 focus:ring-red-500 text-gray-900" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Reason for Request</label>
                   <textarea rows={3} value={formData.description} onChange={e => setFormData(p => ({ ...p, description: e.target.value }))}
-                    placeholder="Additional details..." className="w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:border-red-500 focus:ring-red-500 text-gray-900" />
+                    placeholder="e.g. Surgery scheduled, accident victim, thalassemia patient..." className="w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:border-red-500 focus:ring-red-500 text-gray-900" />
                 </div>
                 <button type="submit" disabled={creating}
                   className="w-full py-3 rounded-lg text-sm font-semibold text-white bg-red-600 hover:bg-red-700 disabled:opacity-50 transition-colors">

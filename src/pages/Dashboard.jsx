@@ -68,31 +68,27 @@ const Dashboard = () => {
 
   const loadDashboardData = async () => {
     setLoading(true);
-    try {
-      const [statsData, requests, donationsData, profile, activityData] = await Promise.all([
-        getInstitutionStats(currentUser.id),
-        getInstitutionRequests(currentUser.id),
-        getInstitutionDonations(currentUser.id),
-        getInstitutionProfile(currentUser.id),
-        getRecentActivity(currentUser.id, 20),
-      ]);
-      setStats(statsData);
-      setBloodRequests(requests);
-      setDonations(donationsData);
-      setInstitutionProfile(profile);
-      setActivity(activityData);
-      if (profile) setProfileForm({
-        institution_name: profile.name || '',
-        email: profile.email || '',
-        phone: profile.phone || '',
-        website: profile.website || '',
-        address: profile.address || '',
-      });
-    } catch (error) {
-      console.error('Failed to load dashboard data:', error);
-    } finally {
-      setLoading(false);
-    }
+    let requests = [];
+    let donationsData = [];
+
+    // Fetch each independently so one failure doesn't block the rest
+    try { const profile = await getInstitutionProfile(currentUser.id); setInstitutionProfile(profile); if (profile) setProfileForm({ institution_name: profile.name || '', email: profile.email || '', phone: profile.phone || '', website: profile.website || '', address: profile.address || '' }); }
+    catch (e) { console.error('Profile fetch failed:', e); }
+
+    try { requests = await getInstitutionRequests(currentUser.id); setBloodRequests(requests); }
+    catch (e) { console.error('Requests fetch failed:', e); }
+
+    try { donationsData = await getInstitutionDonations(currentUser.id); setDonations(donationsData); }
+    catch (e) { console.error('Donations fetch failed:', e); }
+
+    // Compute stats from already-fetched data (no extra queries)
+    try { const statsData = await getInstitutionStats(currentUser.id, requests, donationsData); setStats(statsData); }
+    catch (e) { console.error('Stats compute failed:', e); }
+
+    try { const activityData = await getRecentActivity(currentUser.id, 20); setActivity(activityData); }
+    catch (e) { console.error('Activity fetch failed:', e); }
+
+    setLoading(false);
   };
 
   const handleLogout = async () => {
@@ -228,16 +224,16 @@ const Dashboard = () => {
             {/* Stats Cards */}
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
               {[
-                { label: 'Active Requests', value: stats.activeRequests, color: 'red' },
-                { label: 'Fulfilled', value: stats.fulfilledRequests, color: 'green' },
-                { label: 'Total Requests', value: stats.totalRequests, color: 'blue' },
-                { label: 'Upcoming Donations', value: stats.upcomingDonations, color: 'indigo' },
-                { label: 'Completed Donations', value: stats.completedDonations, color: 'emerald' },
-                { label: 'Unique Donors', value: stats.uniqueDonors, color: 'purple' },
-              ].map(({ label, value, color }) => (
+                { label: 'Active Requests', value: stats.activeRequests, colorClass: 'text-red-600' },
+                { label: 'Fulfilled', value: stats.fulfilledRequests, colorClass: 'text-green-600' },
+                { label: 'Total Requests', value: stats.totalRequests, colorClass: 'text-blue-600' },
+                { label: 'Upcoming Donations', value: stats.upcomingDonations, colorClass: 'text-indigo-600' },
+                { label: 'Completed Donations', value: stats.completedDonations, colorClass: 'text-emerald-600' },
+                { label: 'Unique Donors', value: stats.uniqueDonors, colorClass: 'text-purple-600' },
+              ].map(({ label, value, colorClass }) => (
                 <div key={label} className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-md transition-shadow">
                   <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">{label}</p>
-                  <p className={`text-2xl font-bold text-${color}-600 mt-1`}>{value}</p>
+                  <p className={`text-2xl font-bold ${colorClass} mt-1`}>{value}</p>
                 </div>
               ))}
             </div>

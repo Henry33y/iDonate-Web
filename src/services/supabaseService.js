@@ -183,12 +183,10 @@ export const deleteBloodRequest = async (requestId) => {
     if (error) throw new Error(error.message);
 };
 
-/** Get dashboard stats for an institution */
-export const getInstitutionStats = async (institutionId) => {
-    const [requests, donations] = await Promise.all([
-        getInstitutionRequests(institutionId),
-        getInstitutionDonations(institutionId),
-    ]);
+/** Get dashboard stats for an institution (accepts pre-fetched data to avoid duplicate queries) */
+export const getInstitutionStats = async (institutionId, prefetchedRequests, prefetchedDonations) => {
+    const requests = prefetchedRequests || await getInstitutionRequests(institutionId);
+    const donations = prefetchedDonations || await getInstitutionDonations(institutionId);
 
     const activeRequests = requests.filter(r => r.status === 'pending').length;
     const fulfilledRequests = requests.filter(r => r.status === 'fulfilled').length;
@@ -198,6 +196,7 @@ export const getInstitutionStats = async (institutionId) => {
     const completedDonations = donations.filter(d => d.status === 'completed').length;
     const uniqueDonors = new Set(donations.map(d => d.donor_id)).size;
 
+    console.log('[iDonate:Stats]', { activeRequests, fulfilledRequests, totalRequests, upcomingDonations, completedDonations, uniqueDonors });
     return { activeRequests, fulfilledRequests, totalRequests, upcomingDonations, completedDonations, uniqueDonors };
 };
 
@@ -205,28 +204,39 @@ export const getInstitutionStats = async (institutionId) => {
 
 /** Fetch all donations for an institution (with donor profiles) */
 export const getInstitutionDonations = async (institutionId) => {
-    const { data, error } = await supabase
-        .from('donations')
-        .select(`
-            *,
-            donors:donor_id (
-                blood_type
-            ),
-            profiles:donor_id (
-                full_name,
-                phone_number,
-                avatar_url
-            ),
-            blood_requests:blood_request_id (
-                blood_type_needed,
-                urgency_level
-            )
-        `)
-        .eq('institution_id', institutionId)
-        .order('scheduled_date', { ascending: false });
+    console.log('[iDonate:Donations] Fetching donations for', institutionId);
 
-    if (error) throw new Error(error.message);
-    return data || [];
+    // Try enriched query first, fall back to simple query
+    try {
+        const { data, error } = await supabase
+            .from('donations')
+            .select(`
+                *,
+                profiles:donor_id (
+                    full_name,
+                    phone_number,
+                    avatar_url
+                )
+            `)
+            .eq('institution_id', institutionId)
+            .order('scheduled_date', { ascending: false });
+
+        if (error) throw error;
+        console.log('[iDonate:Donations] Fetched', data?.length || 0, 'donations (with profiles)');
+        return data || [];
+    } catch (e) {
+        console.warn('[iDonate:Donations] Enriched query failed, trying simple query:', e.message);
+        // Fallback: simple query without joins
+        const { data, error } = await supabase
+            .from('donations')
+            .select('*')
+            .eq('institution_id', institutionId)
+            .order('scheduled_date', { ascending: false });
+
+        if (error) throw new Error(error.message);
+        console.log('[iDonate:Donations] Fetched', data?.length || 0, 'donations (simple)');
+        return data || [];
+    }
 };
 
 /** Update a donation status (confirm, complete, cancel, no_show) */
@@ -283,21 +293,28 @@ export const getRequestDonors = async (requestId) => {
 
 /** Get recent donation activity for an institution */
 export const getRecentActivity = async (institutionId, limit = 20) => {
-    const { data, error } = await supabase
-        .from('donations')
-        .select(`
-            *,
-            profiles:donor_id (
-                full_name,
-                avatar_url
-            )
-        `)
-        .eq('institution_id', institutionId)
-        .order('created_at', { ascending: false })
-        .limit(limit);
+    console.log('[iDonate:Activity] Fetching activity for', institutionId);
+    try {
+        const { data, error } = await supabase
+            .from('donations')
+            .select(`
+                *,
+                profiles:donor_id (
+                    full_name,
+                    avatar_url
+                )
+            `)
+            .eq('institution_id', institutionId)
+            .order('created_at', { ascending: false })
+            .limit(limit);
 
-    if (error) throw new Error(error.message);
-    return data || [];
+        if (error) throw error;
+        console.log('[iDonate:Activity]', data?.length || 0, 'activities');
+        return data || [];
+    } catch (e) {
+        console.warn('[iDonate:Activity] Query failed:', e.message);
+        return [];
+    }
 };
 
 /** Update institution profile */
@@ -312,3 +329,4 @@ export const updateInstitutionProfile = async (institutionId, updates) => {
     if (error) throw new Error(error.message);
     return data;
 };
+

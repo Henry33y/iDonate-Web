@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { supabase } from '../config/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
@@ -44,7 +45,7 @@ const Dashboard = () => {
   // Create form
   const [formData, setFormData] = useState({
     blood_type_needed: 'A+', units_needed: 1, urgency_level: 'moderate',
-    description: '', date_needed: '', contact_phone: '',
+    description: '', date_needed: '', time_needed: '', contact_phone: '',
   });
   const [creating, setCreating] = useState(false);
 
@@ -64,7 +65,34 @@ const Dashboard = () => {
   const [showNotifications, setShowNotifications] = useState(false);
 
   useEffect(() => {
-    if (currentUser?.id) loadDashboardData();
+    if (currentUser?.id) {
+      loadDashboardData();
+
+      // ─── Real-time Notifications Subscription ───
+      // Listen for new donations for this institution
+      const donationSubscription = supabase
+        .channel('institution-donations')
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'donations',
+            filter: `institution_id=eq.${currentUser.id}`,
+          },
+          (payload) => {
+            console.log('[iDonate:Realtime] New donation response!', payload);
+            toast.info('New donor volunteer response! Check your donations tab.');
+            // Refresh data to show the new notification/donation
+            loadDashboardData();
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(donationSubscription);
+      };
+    }
   }, [currentUser?.id]);
 
   const loadDashboardData = async () => {
@@ -108,10 +136,11 @@ const Dashboard = () => {
         urgency_level: formData.urgency_level,
         description: formData.description || null,
         date_needed: formData.date_needed || null,
+        time_needed: formData.time_needed || null,
         contact_phone: formData.contact_phone || null,
       });
       toast.success('Blood request created!');
-      setFormData({ blood_type_needed: 'A+', units_needed: 1, urgency_level: 'moderate', description: '', date_needed: '', contact_phone: '' });
+      setFormData({ blood_type_needed: 'A+', units_needed: 1, urgency_level: 'moderate', description: '', date_needed: '', time_needed: '', contact_phone: '' });
       await loadDashboardData();
       setActiveTab('requests');
     } catch (error) {
@@ -352,10 +381,18 @@ const Dashboard = () => {
                       className="w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:border-red-500 focus:ring-red-500 text-gray-900" />
                   </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Alternative Contact (Phone)</label>
-                  <input type="tel" value={formData.contact_phone} onChange={e => setFormData(p => ({ ...p, contact_phone: e.target.value }))}
-                    placeholder="Optional — e.g. +1 234 567 8900" className="w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:border-red-500 focus:ring-red-500 text-gray-900" />
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Time Needed</label>
+                    <input type="time" value={formData.time_needed}
+                      onChange={e => setFormData(p => ({ ...p, time_needed: e.target.value }))}
+                      className="w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:border-red-500 focus:ring-red-500 text-gray-900" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Alternative Contact (Phone)</label>
+                    <input type="tel" value={formData.contact_phone} onChange={e => setFormData(p => ({ ...p, contact_phone: e.target.value }))}
+                      placeholder="Optional — e.g. +1 234 567 8900" className="w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:border-red-500 focus:ring-red-500 text-gray-900" />
+                  </div>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Reason for Request</label>
@@ -418,7 +455,7 @@ const Dashboard = () => {
                   <table className="w-full">
                     <thead>
                       <tr className="bg-gray-50">
-                        {['Blood Type', 'Units', 'Patient', 'Urgency', 'Status', 'Date', 'Actions'].map(h => (
+                        {['Blood Type', 'Units', 'Patient', 'Urgency', 'Status', 'Date/Time', 'Actions'].map(h => (
                           <th key={h} className={`px-6 py-3 text-xs font-semibold text-gray-500 uppercase ${h === 'Actions' ? 'text-right' : 'text-left'}`}>{h}</th>
                         ))}
                       </tr>
@@ -429,14 +466,17 @@ const Dashboard = () => {
                           <td className="px-6 py-4"><span className="inline-flex items-center justify-center w-9 h-9 rounded-full bg-red-100 text-red-700 font-bold text-sm">{req.blood_type_needed}</span></td>
                           <td className="px-6 py-4 text-sm font-medium text-gray-900">{req.units_needed}</td>
                           <td className="px-6 py-4 text-sm text-gray-600">{req.patient_name || '—'}</td>
-                          <td className="px-6 py-4"><span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${urgencyColor(req.urgency_level)}`}>{req.urgency_level}</span></td>
+                           <td className="px-6 py-4"><span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${urgencyColor(req.urgency_level)}`}>{req.urgency_level}</span></td>
                           <td className="px-6 py-4"><span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${statusColor(req.status)}`}>{req.status}</span></td>
-                          <td className="px-6 py-4 text-sm text-gray-500">{new Date(req.created_at).toLocaleDateString()}</td>
+                          <td className="px-6 py-4 text-sm text-gray-500">
+                            <div>{req.date_needed ? new Date(req.date_needed).toLocaleDateString() : new Date(req.created_at).toLocaleDateString()}</div>
+                            {req.time_needed && <div className="text-xs text-gray-400 font-medium">{req.time_needed}</div>}
+                          </td>
                           <td className="px-6 py-4 text-right">
                             <div className="flex items-center justify-end gap-2">
                               {req.status === 'pending' && (
                                 <>
-                                  <button onClick={() => { setEditingRequest(req); setEditForm({ units_needed: req.units_needed, urgency_level: req.urgency_level, description: req.description || '' }); }}
+                                  <button onClick={() => { setEditingRequest(req); setEditForm({ units_needed: req.units_needed, urgency_level: req.urgency_level, description: req.description || '', date_needed: req.date_needed || '', time_needed: req.time_needed || '' }); }}
                                     className="text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-md transition-colors">Edit</button>
                                   <button onClick={() => handleStatusChange(req.id, 'fulfilled')}
                                     className="text-xs font-medium text-green-600 bg-green-50 hover:bg-green-100 px-3 py-1.5 rounded-md transition-colors">Fulfill</button>
@@ -473,6 +513,18 @@ const Dashboard = () => {
                         className="w-full rounded-lg border border-gray-300 px-4 py-2.5 bg-white text-gray-900">
                         {URGENCY_LEVELS.map(u => <option key={u} value={u}>{u.charAt(0).toUpperCase() + u.slice(1)}</option>)}
                       </select>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+                        <input type="date" value={editForm.date_needed} onChange={e => setEditForm(f => ({ ...f, date_needed: e.target.value }))}
+                          className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900" />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Time</label>
+                        <input type="time" value={editForm.time_needed} onChange={e => setEditForm(f => ({ ...f, time_needed: e.target.value }))}
+                          className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900" />
+                      </div>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>

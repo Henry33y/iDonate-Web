@@ -21,7 +21,6 @@ interface WebhookPayload {
     blood_type_needed: string;
     units_needed: number;
     urgency_level: string;
-    patient_name: string | null;
     description: string | null;
   };
 }
@@ -53,31 +52,50 @@ Deno.serve(async (req) => {
 
     const institutionName = requesterProfile?.institution_name || 'A medical institution';
 
-    // Find donors with matching blood type who have push tokens
+    // Medical Compatibility Map (Who can donate to whom)
+    const COMPATIBILITY_MAP: Record<string, string[]> = {
+      'A+': ['A+', 'A-', 'O+', 'O-'],
+      'A-': ['A-', 'O-'],
+      'B+': ['B+', 'B-', 'O+', 'O-'],
+      'B-': ['B-', 'O-'],
+      'AB+': ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'], // Universal Recipient
+      'AB-': ['AB-', 'A-', 'B-', 'O-'],
+      'O+': ['O+', 'O-'],
+      'O-': ['O-'] // Universal Donor
+    };
+
+    const requestedType = request.blood_type_needed;
+    const compatibleDonorTypes = COMPATIBILITY_MAP[requestedType] || [requestedType];
+
+    // Find donors with compatible blood types who have push tokens
     const { data: matchingDonors, error: donorsError } = await supabase
       .from('donors')
-      .select('id, blood_type, profiles!inner(push_token, full_name)')
-      .eq('blood_type', request.blood_type_needed);
+      .select('id, blood_type, profiles(push_token, full_name)')
+      .in('blood_type', compatibleDonorTypes);
 
     if (donorsError) {
       console.error('Error fetching donors:', donorsError);
       return new Response(JSON.stringify({ error: donorsError.message }), { status: 500 });
     }
 
+    console.log(`Compatible donors for ${requestedType} (${compatibleDonorTypes.join(', ')}):`, matchingDonors?.length || 0);
+
     // Filter to only donors with push tokens (exclude the requester)
     const pushTokens: string[] = [];
     for (const donor of matchingDonors || []) {
-      const profile = donor.profiles as any;
-      if (profile?.push_token && donor.id !== request.requester_id) {
-        pushTokens.push(profile.push_token);
+      const profile = (donor as any).profiles;
+      if (profile?.push_token) {
+        if (donor.id !== request.requester_id) {
+          pushTokens.push(profile.push_token);
+        } else {
+          console.log('Skipping push for requester (self)');
+        }
+      } else {
+        console.log(`Donor ${donor.id} has no push token`);
       }
     }
 
-    console.log(`Found ${pushTokens.length} donors with ${request.blood_type_needed} blood type and push tokens`);
-
-    if (pushTokens.length === 0) {
-      return new Response(JSON.stringify({ message: 'No matching donors with push tokens' }), { status: 200 });
-    }
+    console.log(`Found ${pushTokens.length} valid recipient tokens`);
 
     // Build urgency label
     const urgencyLabel = request.urgency_level === 'critical' ? '🚨 CRITICAL'
@@ -85,12 +103,42 @@ Deno.serve(async (req) => {
       : request.urgency_level === 'moderate' ? 'Moderate'
       : 'Low';
 
+    const notificationTitle = `${urgencyLabel}: ${request.blood_type_needed} Blood Needed`;
+    const notificationBody = `${institutionName} needs ${request.units_needed} unit${request.units_needed > 1 ? 's' : ''} of ${request.blood_type_needed} blood. Tap to respond.`;
+
+    // Persist notifications in the database for history/badges
+    const notificationRecords = matchingDonors?.filter((d: any) => d.id !== request.requester_id).map((donor: any) => ({
+      user_id: donor.id,
+      type: 'urgent_request',
+      title: notificationTitle,
+      message: notificationBody,
+      data: {
+        requestId: request.id,
+        bloodType: request.blood_type_needed,
+        urgency: request.urgency_level,
+        institutionName: institutionName
+      }
+    }));
+
+    if (notificationRecords && notificationRecords.length > 0) {
+      console.log(`Inserting ${notificationRecords.length} notification records into database...`);
+      const { error: insertError } = await supabase
+        .from('notifications')
+        .insert(notificationRecords);
+      
+      if (insertError) {
+        console.error('Error inserting notification records:', insertError);
+      } else {
+        console.log('Successfully persisted notifications to database.');
+      }
+    }
+
     // Build notification messages (Expo accepts batches of up to 100)
     const messages = pushTokens.map(token => ({
       to: token,
       sound: 'default',
-      title: `${urgencyLabel}: ${request.blood_type_needed} Blood Needed`,
-      body: `${institutionName} needs ${request.units_needed} unit${request.units_needed > 1 ? 's' : ''} of ${request.blood_type_needed} blood.${request.patient_name ? ` Patient: ${request.patient_name}` : ''} Tap to respond.`,
+      title: notificationTitle,
+      body: notificationBody,
       data: {
         requestId: request.id,
         bloodType: request.blood_type_needed,

@@ -120,17 +120,22 @@ Deno.serve(async (req) => {
       }
     }));
 
+    console.log('Notification records to insert:', JSON.stringify(notificationRecords));
+
     if (notificationRecords && notificationRecords.length > 0) {
       console.log(`Inserting ${notificationRecords.length} notification records into database...`);
-      const { error: insertError } = await supabase
+      const { data: insertData, error: insertError } = await supabase
         .from('notifications')
-        .insert(notificationRecords);
+        .insert(notificationRecords)
+        .select();
       
       if (insertError) {
         console.error('Error inserting notification records:', insertError);
       } else {
-        console.log('Successfully persisted notifications to database.');
+        console.log('Successfully persisted notifications to database:', insertData?.length, 'rows');
       }
+    } else {
+      console.log('No notification records to insert (no matching donors or only self).');
     }
 
     // Build notification messages (Expo accepts batches of up to 100)

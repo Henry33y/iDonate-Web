@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { supabase } from '../config/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -64,30 +64,78 @@ const Dashboard = () => {
   // Notifications panel
   const [showNotifications, setShowNotifications] = useState(false);
 
+  // ─── Notification Badge: only count activity since last seen ───
+  const lastSeenRef = useRef(localStorage.getItem('institution_notification_last_seen'));
+  const [newActivityCount, setNewActivityCount] = useState(0);
+
+  const recalcNewActivity = useCallback((activityList) => {
+    const since = lastSeenRef.current;
+    if (!since) {
+      setNewActivityCount(activityList.length);
+    } else {
+      const count = activityList.filter(a => new Date(a.created_at) > new Date(since)).length;
+      setNewActivityCount(count);
+    }
+  }, []);
+
+  const resetNotificationBadge = useCallback(() => {
+    const now = new Date().toISOString();
+    lastSeenRef.current = now;
+    setNewActivityCount(0);
+    localStorage.setItem('institution_notification_last_seen', now);
+  }, []);
+
+  // Toggle notifications panel — reset badge when closing
+  const handleToggleNotifications = useCallback(() => {
+    setShowNotifications(prev => {
+      if (prev) {
+        // Closing the panel → reset
+        resetNotificationBadge();
+      }
+      return !prev;
+    });
+  }, [resetNotificationBadge]);
+
+  // Keep a ref to loadDashboardData so the realtime callback never goes stale
+  const loadDashboardDataRef = useRef(null);
+
   useEffect(() => {
     if (currentUser?.id) {
       loadDashboardData();
 
       // ─── Real-time Notifications Subscription ───
-      // Listen for new donations for this institution
+      // Listen for donations activity for this institution
       const donationSubscription = supabase
         .channel('institution-donations')
         .on(
           'postgres_changes',
           {
-            event: 'INSERT',
+            event: '*',
             schema: 'public',
             table: 'donations',
             filter: `institution_id=eq.${currentUser.id}`,
           },
           (payload) => {
-            console.log('[iDonate:Realtime] New donation response!', payload);
-            toast.info('New donor volunteer response! Check your donations tab.');
-            // Refresh data to show the new notification/donation
-            loadDashboardData();
+            console.log('[iDonate:Realtime] Donation event:', payload.eventType);
+            if (payload.eventType === 'INSERT') {
+              toast.info('New donor volunteer response! Check your donations tab.');
+            }
+            // Immediately bump the badge count so it feels instant
+            const eventTime = payload.new?.created_at;
+            if (eventTime && lastSeenRef.current) {
+              if (new Date(eventTime) > new Date(lastSeenRef.current)) {
+                setNewActivityCount(prev => prev + 1);
+              }
+            } else if (payload.eventType === 'INSERT') {
+              setNewActivityCount(prev => prev + 1);
+            }
+            // Then refresh the full data in the background
+            loadDashboardDataRef.current?.();
           }
         )
-        .subscribe();
+        .subscribe((status) => {
+          console.log('[iDonate:Realtime] Subscription status:', status);
+        });
 
       return () => {
         supabase.removeChannel(donationSubscription);
@@ -114,11 +162,12 @@ const Dashboard = () => {
     try { const statsData = await getInstitutionStats(currentUser.id, requests, donationsData); setStats(statsData); }
     catch (e) { console.error('Stats compute failed:', e); }
 
-    try { const activityData = await getRecentActivity(currentUser.id, 20); setActivity(activityData); }
+    try { const activityData = await getRecentActivity(currentUser.id, 20); setActivity(activityData); recalcNewActivity(activityData); }
     catch (e) { console.error('Activity fetch failed:', e); }
 
     setLoading(false);
   };
+  loadDashboardDataRef.current = loadDashboardData;
 
   const handleLogout = async () => {
     try { await logout(); navigate('/'); } catch { toast.error('Failed to log out'); }
@@ -322,19 +371,30 @@ const Dashboard = () => {
               ) : (
                 <div className="space-y-3">
                   {bloodRequests.slice(0, 5).map(req => (
-                    <div key={req.id} className="flex items-center justify-between p-3 rounded-lg bg-gray-50">
-                      <div className="flex items-center gap-3">
-                        <span className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-red-100 text-red-700 font-bold text-sm">{req.blood_type_needed}</span>
-                        <div>
-                          <p className="text-sm font-medium text-gray-900">
-                            {req.units_needed} unit{req.units_needed > 1 ? 's' : ''}{req.patient_name && <span className="text-gray-500"> · {req.patient_name}</span>}
-                          </p>
-                          <p className="text-xs text-gray-400">{new Date(req.created_at).toLocaleDateString()}</p>
+                    <div key={req.id} className="p-4 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors cursor-pointer" onClick={() => setActiveTab('requests')}>
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-start gap-3 flex-1 min-w-0">
+                          <span className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-red-100 text-red-700 font-bold text-sm flex-shrink-0">{req.blood_type_needed}</span>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-semibold text-gray-900">
+                              {req.blood_type_needed} · {req.units_needed} unit{req.units_needed > 1 ? 's' : ''}{req.patient_name && <span className="text-gray-500 font-normal"> · {req.patient_name}</span>}
+                            </p>
+                            {req.description && (
+                              <p className="text-xs text-gray-500 mt-0.5 truncate">{req.description}</p>
+                            )}
+                            <div className="flex items-center gap-2 mt-1">
+                              {req.date_needed && (
+                                <span className="text-xs text-gray-400">Needed by {new Date(req.date_needed).toLocaleDateString()}</span>
+                              )}
+                              {req.date_needed && <span className="text-xs text-gray-300">·</span>}
+                              <span className="text-xs text-gray-400">{new Date(req.created_at).toLocaleDateString()}</span>
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${urgencyColor(req.urgency_level)}`}>{req.urgency_level}</span>
-                        <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${statusColor(req.status)}`}>{req.status}</span>
+                        <div className="flex items-center gap-2 flex-shrink-0 ml-3">
+                          <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${urgencyColor(req.urgency_level)}`}>{req.urgency_level}</span>
+                          <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${statusColor(req.status)}`}>{req.status}</span>
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -455,7 +515,7 @@ const Dashboard = () => {
                   <table className="w-full">
                     <thead>
                       <tr className="bg-gray-50">
-                        {['Blood Type', 'Units', 'Patient', 'Urgency', 'Status', 'Date/Time', 'Actions'].map(h => (
+                        {['Blood Type', 'Units', 'Patient', 'Reason', 'Urgency', 'Status', 'Date/Time', 'Actions'].map(h => (
                           <th key={h} className={`px-6 py-3 text-xs font-semibold text-gray-500 uppercase ${h === 'Actions' ? 'text-right' : 'text-left'}`}>{h}</th>
                         ))}
                       </tr>
@@ -466,6 +526,7 @@ const Dashboard = () => {
                           <td className="px-6 py-4"><span className="inline-flex items-center justify-center w-9 h-9 rounded-full bg-red-100 text-red-700 font-bold text-sm">{req.blood_type_needed}</span></td>
                           <td className="px-6 py-4 text-sm font-medium text-gray-900">{req.units_needed}</td>
                           <td className="px-6 py-4 text-sm text-gray-600">{req.patient_name || '—'}</td>
+                          <td className="px-6 py-4 text-sm text-gray-500 max-w-[200px]"><span className="line-clamp-2">{req.description || '—'}</span></td>
                            <td className="px-6 py-4"><span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${urgencyColor(req.urgency_level)}`}>{req.urgency_level}</span></td>
                           <td className="px-6 py-4"><span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${statusColor(req.status)}`}>{req.status}</span></td>
                           <td className="px-6 py-4 text-sm text-gray-500">
@@ -807,12 +868,12 @@ const Dashboard = () => {
               </div>
               {/* Notification Bell */}
               <div className="relative">
-                <button onClick={() => setShowNotifications(!showNotifications)}
+                <button onClick={handleToggleNotifications}
                   className="relative p-2 rounded-lg hover:bg-gray-100 transition-colors">
                   <BellIcon className="h-6 w-6 text-gray-500" />
-                  {activity.length > 0 && (
+                  {newActivityCount > 0 && (
                     <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-red-500 rounded-full text-[10px] text-white font-bold flex items-center justify-center">
-                      {Math.min(activity.length, 9)}
+                      {Math.min(newActivityCount, 9)}
                     </span>
                   )}
                 </button>

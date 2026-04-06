@@ -123,12 +123,152 @@ export const getPendingInstitutions = async () => {
 export const updateInstitutionStatus = async (institutionId, status) => {
     try {
         const verified = status === 'approved';
+        const payload = { status, verified };
+        // Set verified_at timestamp when approving
+        if (status === 'approved') {
+            payload.verified_at = new Date().toISOString();
+        }
         const { error } = await supabase
             .from('institutions')
-            .update({ status, verified })
+            .update(payload)
             .eq('id', institutionId);
 
         if (error) throw error;
+    } catch (error) {
+        throw new Error(error.message);
+    }
+};
+
+// ─── Admin Panel Functions ──────────────────────────────────────────
+
+/** Helper: map raw institution row to UI shape */
+const mapInstitution = (inst) => ({
+    id: inst.id,
+    name: inst.institution_name,
+    type: inst.institution_type,
+    email: inst.email,
+    phone: inst.phone,
+    region: inst.region,
+    city: inst.city,
+    location: { city: inst.city, region: inst.region },
+    address: inst.address,
+    website: inst.website,
+    licenseNumber: inst.license_number || null,
+    contactPerson: inst.contact_person_name ? {
+        name: inst.contact_person_name,
+        role: inst.contact_person_role,
+    } : null,
+    status: inst.status,
+    verified: inst.verified,
+    documents: inst.documents,
+    createdAt: inst.created_at,
+    verifiedAt: inst.verified_at || null,
+});
+
+/** Fetch institutions filtered by status */
+export const getInstitutionsByStatus = async (status) => {
+    try {
+        const { data, error } = await supabase
+            .from('institutions')
+            .select('*')
+            .eq('status', status)
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        return (data || []).map(mapInstitution);
+    } catch (error) {
+        throw new Error(error.message);
+    }
+};
+
+/** Fetch ALL institutions regardless of status */
+export const getAllInstitutions = async () => {
+    try {
+        const { data, error } = await supabase
+            .from('institutions')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        return (data || []).map(mapInstitution);
+    } catch (error) {
+        throw new Error(error.message);
+    }
+};
+
+/** Get platform-wide statistics for admin overview */
+export const getPlatformStats = async () => {
+    try {
+        // Fetch counts in parallel
+        const [
+            { count: totalDonors },
+            { count: totalInstitutions },
+            { count: pendingInstitutions },
+            { count: approvedInstitutions },
+            { count: suspendedInstitutions },
+            { count: activeRequests },
+            { count: totalRequests },
+            { count: completedDonations },
+            { count: totalDonations },
+        ] = await Promise.all([
+            supabase.from('donors').select('*', { count: 'exact', head: true }),
+            supabase.from('institutions').select('*', { count: 'exact', head: true }),
+            supabase.from('institutions').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
+            supabase.from('institutions').select('*', { count: 'exact', head: true }).eq('status', 'approved'),
+            supabase.from('institutions').select('*', { count: 'exact', head: true }).eq('status', 'suspended'),
+            supabase.from('blood_requests').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
+            supabase.from('blood_requests').select('*', { count: 'exact', head: true }),
+            supabase.from('donations').select('*', { count: 'exact', head: true }).eq('status', 'completed'),
+            supabase.from('donations').select('*', { count: 'exact', head: true }),
+        ]);
+
+        return {
+            totalDonors: totalDonors || 0,
+            totalInstitutions: totalInstitutions || 0,
+            pendingInstitutions: pendingInstitutions || 0,
+            approvedInstitutions: approvedInstitutions || 0,
+            suspendedInstitutions: suspendedInstitutions || 0,
+            activeRequests: activeRequests || 0,
+            totalRequests: totalRequests || 0,
+            completedDonations: completedDonations || 0,
+            totalDonations: totalDonations || 0,
+        };
+    } catch (error) {
+        console.error('[Admin] Stats fetch error:', error);
+        return {
+            totalDonors: 0, totalInstitutions: 0, pendingInstitutions: 0,
+            approvedInstitutions: 0, suspendedInstitutions: 0,
+            activeRequests: 0, totalRequests: 0,
+            completedDonations: 0, totalDonations: 0,
+        };
+    }
+};
+
+/** Fetch all users (profiles) for admin user management */
+export const getAllUsers = async () => {
+    try {
+        const { data, error } = await supabase
+            .from('profiles')
+            .select('*, donors(*)')
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        return data || [];
+    } catch (error) {
+        throw new Error(error.message);
+    }
+};
+
+/** Fetch all blood requests platform-wide (admin) */
+export const getAllBloodRequests = async () => {
+    try {
+        const { data, error } = await supabase
+            .from('blood_requests')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        return data || [];
     } catch (error) {
         throw new Error(error.message);
     }

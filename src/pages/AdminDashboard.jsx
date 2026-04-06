@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import {
   getPlatformStats,
   getAllInstitutions,
@@ -27,6 +27,7 @@ import {
   ClockIcon,
   NoSymbolIcon,
   ChevronRightIcon,
+  BellIcon,
 } from '@heroicons/react/24/outline';
 import { toast } from 'react-toastify';
 
@@ -70,6 +71,30 @@ const AdminDashboard = () => {
   const [requestStatusFilter, setRequestStatusFilter] = useState('all');
   const [requestUrgencyFilter, setRequestUrgencyFilter] = useState('all');
 
+  // Notification bell state
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [newPendingCount, setNewPendingCount] = useState(0);
+  const [pendingNotifs, setPendingNotifs] = useState([]);
+  const loadAllDataRef = useRef(null);
+
+  // ─── Notification helpers ─────────────────────────────────────
+  const recalcNewPending = useCallback((instList) => {
+    const lastSeen = localStorage.getItem('admin_notif_lastSeen') || '1970-01-01T00:00:00Z';
+    const pending = instList.filter(i => i.status === 'pending');
+    const newOnes = pending.filter(i => new Date(i.createdAt) > new Date(lastSeen));
+    setNewPendingCount(newOnes.length);
+    setPendingNotifs(pending);
+  }, []);
+
+  const handleNotifToggle = () => {
+    if (notifOpen) {
+      // Closing — mark as seen
+      localStorage.setItem('admin_notif_lastSeen', new Date().toISOString());
+      setNewPendingCount(0);
+    }
+    setNotifOpen(!notifOpen);
+  };
+
   // ─── Data Loading ───────────────────────────────────────────────
   useEffect(() => {
     loadAllData();
@@ -97,8 +122,35 @@ const AdminDashboard = () => {
       toast.error('Failed to load admin data');
     } finally {
       setLoading(false);
+      // Update notification badge after load
+      if (institutions.length > 0 || !loading) {
+        // Will be called again after state updates via the effect below
+      }
     }
   };
+
+  // Keep loadAllDataRef current for realtime callback
+  loadAllDataRef.current = loadAllData;
+
+  // Recalc notifications whenever institutions data changes
+  useEffect(() => {
+    if (institutions.length > 0 || !loading) {
+      recalcNewPending(institutions);
+    }
+  }, [institutions, loading, recalcNewPending]);
+
+  // ─── Realtime subscription for new institutions ─────────────────
+  useEffect(() => {
+    const channel = supabase
+      .channel('admin-institutions-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'institutions' }, () => {
+        // Refresh all data when institutions table changes
+        if (loadAllDataRef.current) loadAllDataRef.current();
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, []);
 
   // ─── Institution Actions ────────────────────────────────────────
   const handleStatusUpdate = async (institutionId, status) => {
@@ -535,8 +587,63 @@ const AdminDashboard = () => {
       {/* Sidebar */}
       <aside className="w-64 bg-white border-r border-gray-200 flex flex-col min-h-screen">
         <div className="p-6 border-b border-gray-200">
-          <h1 className="text-xl font-bold text-red-600">iDonate</h1>
-          <p className="text-xs text-gray-400 mt-1">Admin Panel</p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-xl font-bold text-red-600">iDonate</h1>
+              <p className="text-xs text-gray-400 mt-1">Admin Panel</p>
+            </div>
+            <div className="relative">
+              <button onClick={handleNotifToggle}
+                className="relative p-2 rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors">
+                <BellIcon className="h-5 w-5" />
+                {newPendingCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1 animate-pulse">
+                    {newPendingCount}
+                  </span>
+                )}
+              </button>
+
+              {/* Notification Dropdown */}
+              {notifOpen && (
+                <div className="absolute left-0 top-full mt-2 w-80 bg-white rounded-xl shadow-2xl border border-gray-200 z-50 overflow-hidden">
+                  <div className="p-4 border-b border-gray-100 flex items-center justify-between">
+                    <h3 className="text-sm font-bold text-gray-900">Pending Approvals</h3>
+                    <span className="text-xs text-gray-400">{pendingNotifs.length} total</span>
+                  </div>
+                  <div className="max-h-80 overflow-y-auto">
+                    {pendingNotifs.length === 0 ? (
+                      <div className="p-6 text-center text-sm text-gray-400">No pending institutions</div>
+                    ) : (
+                      pendingNotifs.map(inst => (
+                        <button key={inst.id}
+                          onClick={() => { setSelectedInstitution(inst); setNotifOpen(false); localStorage.setItem('admin_notif_lastSeen', new Date().toISOString()); setNewPendingCount(0); }}
+                          className="w-full text-left p-4 hover:bg-gray-50 border-b border-gray-50 transition-colors">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-full bg-yellow-100 flex items-center justify-center flex-shrink-0">
+                              <BuildingOfficeIcon className="h-4 w-4 text-yellow-600" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-medium text-gray-900 truncate">{inst.name}</p>
+                              <p className="text-xs text-gray-400">{inst.type || 'Institution'} · {new Date(inst.createdAt).toLocaleDateString()}</p>
+                            </div>
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-yellow-100 text-yellow-700">Review</span>
+                          </div>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                  {pendingNotifs.length > 0 && (
+                    <div className="p-3 border-t border-gray-100">
+                      <button onClick={() => { setActiveTab('institutions'); setInstFilter('pending'); setNotifOpen(false); localStorage.setItem('admin_notif_lastSeen', new Date().toISOString()); setNewPendingCount(0); }}
+                        className="w-full text-center text-xs font-medium text-red-600 hover:text-red-700 py-1">
+                        View all in Institutions tab →
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
 
         <nav className="flex-1 p-4 space-y-1">

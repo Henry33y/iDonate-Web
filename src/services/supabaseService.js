@@ -124,10 +124,6 @@ export const updateInstitutionStatus = async (institutionId, status) => {
     try {
         const verified = status === 'approved';
         const payload = { status, verified };
-        // Set verified_at timestamp when approving
-        if (status === 'approved') {
-            payload.verified_at = new Date().toISOString();
-        }
         const { error } = await supabase
             .from('institutions')
             .update(payload)
@@ -162,7 +158,6 @@ const mapInstitution = (inst) => ({
     verified: inst.verified,
     documents: inst.documents,
     createdAt: inst.created_at,
-    verifiedAt: inst.verified_at || null,
 });
 
 /** Fetch institutions filtered by status */

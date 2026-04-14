@@ -187,6 +187,7 @@ const Dashboard = () => {
     try {
       await createBloodRequest({
         requester_id: currentUser.id,
+        request_type: 'institution',
         blood_type_needed: formData.blood_type_needed,
         units_needed: parseInt(formData.units_needed, 10),
         urgency_level: formData.urgency_level,

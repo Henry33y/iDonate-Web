@@ -426,18 +426,65 @@ export const getInstitutionDonations = async (institutionId) => {
 
 /** Update a donation status (confirm, complete, cancel, no_show) */
 export const updateDonationStatus = async (donationId, status, unitsDonated) => {
+    const isCompleting = status === 'completed';
     const payload = { status };
+    
+    // If institution is marking as completed, set the confirmation flag
+    if (isCompleting) {
+        payload.institution_confirmed = true;
+    }
+
     if (unitsDonated !== undefined) payload.units_donated = unitsDonated;
 
-    const { data, error } = await supabase
+    // First update the flags/status
+    const { data: updatedDonation, error } = await supabase
         .from('donations')
         .update(payload)
         .eq('id', donationId)
-        .select()
+        .select(`
+            *,
+            blood_requests (
+                request_type
+            )
+        `)
         .single();
 
     if (error) throw new Error(error.message);
-    return data;
+
+    // Completion logic from completed.md:
+    // 1. Institutional Requests: completed when institution confirms.
+    // 2. Individual Requests: completed when BOTH donor and recipient confirm.
+    
+    const requestType = updatedDonation.blood_requests?.request_type || 'individual';
+    
+    if (requestType === 'institution') {
+        // Institutional requests complete as soon as institution confirms
+        if (updatedDonation.institution_confirmed && updatedDonation.status !== 'completed') {
+            const { data: final } = await supabase
+                .from('donations')
+                .update({ status: 'completed' })
+                .eq('id', donationId)
+                .select()
+                .single();
+            return final || updatedDonation;
+        }
+    } else {
+        // Individual requests need BOTH donor and recipient (or requester) confirmation
+        // Note: For now, we use institution_confirmed as a proxy for the 'requester' if they use the dashboard,
+        // but typically individual requests are confirmed via mobile.
+        // If both donor and institution/requester confirmed, set to completed.
+        if (updatedDonation.donor_confirmed && updatedDonation.institution_confirmed && updatedDonation.status !== 'completed') {
+            const { data: final } = await supabase
+                .from('donations')
+                .update({ status: 'completed' })
+                .eq('id', donationId)
+                .select()
+                .single();
+            return final || updatedDonation;
+        }
+    }
+
+    return updatedDonation;
 };
 
 // ─── Request Editing & Donor Tracking ───────────────────────────────

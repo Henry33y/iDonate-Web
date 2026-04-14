@@ -308,14 +308,62 @@ export const updateBloodRequestStatus = async (requestId, status) => {
     return data;
 };
 
-/** Delete a blood request */
+/** Delete a blood request (unlinks associated donations first) */
 export const deleteBloodRequest = async (requestId) => {
-    const { error } = await supabase
+    // Step 1: Unlink any donations that reference this request
+    // (prevents FK constraint "donations_blood_request_id_fkey" violation)
+    const { error: unlinkError } = await supabase
+        .from('donations')
+        .update({ blood_request_id: null })
+        .eq('blood_request_id', requestId);
+
+    if (unlinkError) {
+        console.warn('[iDonate] Could not unlink donations:', unlinkError.message);
+        // Not fatal — the request might have no donations, or RLS blocks the update
+    }
+
+    // Step 2: Try hard delete
+    const { data, error } = await supabase
         .from('blood_requests')
         .delete()
-        .eq('id', requestId);
+        .eq('id', requestId)
+        .select();
 
-    if (error) throw new Error(error.message);
+    // If FK constraint still fails (e.g. RLS blocked the unlink), fall back to soft-delete
+    if (error) {
+        if (error.message.includes('foreign key constraint')) {
+            console.warn('[iDonate] FK constraint still active — falling back to soft-delete');
+            const { data: softData, error: softError } = await supabase
+                .from('blood_requests')
+                .update({ status: 'cancelled' })
+                .eq('id', requestId)
+                .select();
+
+            if (softError) throw new Error(softError.message);
+            if (!softData || softData.length === 0) {
+                throw new Error('Unable to delete this request. You may not have permission.');
+            }
+            return;
+        }
+        throw new Error(error.message);
+    }
+
+    // If hard delete succeeded, we're done
+    if (data && data.length > 0) return;
+
+    // RLS may silently block DELETE (returns 0 rows with no error).
+    // Fall back to soft-delete by marking as 'cancelled'.
+    console.warn('[iDonate] Hard delete returned 0 rows — falling back to soft-delete (cancelled)');
+    const { data: softData, error: softError } = await supabase
+        .from('blood_requests')
+        .update({ status: 'cancelled' })
+        .eq('id', requestId)
+        .select();
+
+    if (softError) throw new Error(softError.message);
+    if (!softData || softData.length === 0) {
+        throw new Error('Unable to delete this request. You may not have permission.');
+    }
 };
 
 /** Get dashboard stats for an institution (accepts pre-fetched data to avoid duplicate queries) */
@@ -323,9 +371,11 @@ export const getInstitutionStats = async (institutionId, prefetchedRequests, pre
     const requests = prefetchedRequests || await getInstitutionRequests(institutionId);
     const donations = prefetchedDonations || await getInstitutionDonations(institutionId);
 
-    const activeRequests = requests.filter(r => r.status === 'pending').length;
-    const fulfilledRequests = requests.filter(r => r.status === 'fulfilled').length;
-    const totalRequests = requests.length;
+    // Exclude soft-deleted requests from stats
+    const liveRequests = requests.filter(r => r.status !== 'deleted');
+    const activeRequests = liveRequests.filter(r => r.status === 'pending').length;
+    const fulfilledRequests = liveRequests.filter(r => r.status === 'fulfilled').length;
+    const totalRequests = liveRequests.length;
 
     const upcomingDonations = donations.filter(d => d.status === 'scheduled' || d.status === 'confirmed').length;
     const completedDonations = donations.filter(d => d.status === 'completed').length;
@@ -454,9 +504,17 @@ export const getRecentActivity = async (institutionId, limit = 20) => {
 
 /** Update institution profile */
 export const updateInstitutionProfile = async (institutionId, updates) => {
+    // Map form field names to database column names
+    const dbPayload = {};
+    if (updates.institution_name !== undefined) dbPayload.institution_name = updates.institution_name;
+    if (updates.email !== undefined) dbPayload.email = updates.email;
+    if (updates.phone !== undefined) dbPayload.phone = updates.phone;
+    if (updates.website !== undefined) dbPayload.website = updates.website;
+    if (updates.address !== undefined) dbPayload.address = updates.address;
+
     const { data, error } = await supabase
         .from('institutions')
-        .update(updates)
+        .update(dbPayload)
         .eq('id', institutionId)
         .select()
         .single();

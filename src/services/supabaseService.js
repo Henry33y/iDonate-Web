@@ -211,7 +211,7 @@ export const getPlatformStats = async () => {
             supabase.from('institutions').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
             supabase.from('institutions').select('*', { count: 'exact', head: true }).eq('status', 'approved'),
             supabase.from('institutions').select('*', { count: 'exact', head: true }).eq('status', 'suspended'),
-            supabase.from('blood_requests').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
+            supabase.from('blood_requests').select('*', { count: 'exact', head: true }).in('status', ['open', 'matched', 'in_progress']),
             supabase.from('blood_requests').select('*', { count: 'exact', head: true }),
             supabase.from('donations').select('*', { count: 'exact', head: true }).eq('status', 'completed'),
             supabase.from('donations').select('*', { count: 'exact', head: true }),
@@ -373,8 +373,8 @@ export const getInstitutionStats = async (institutionId, prefetchedRequests, pre
 
     // Exclude soft-deleted requests from stats
     const liveRequests = requests.filter(r => r.status !== 'deleted');
-    const activeRequests = liveRequests.filter(r => r.status === 'pending').length;
-    const fulfilledRequests = liveRequests.filter(r => r.status === 'fulfilled').length;
+    const activeRequests = liveRequests.filter(r => ['open', 'matched', 'in_progress'].includes(r.status)).length;
+    const fulfilledRequests = liveRequests.filter(r => r.status === 'completed').length;
     const totalRequests = liveRequests.length;
 
     const upcomingDonations = donations.filter(d => d.status === 'scheduled' || d.status === 'confirmed').length;
@@ -451,39 +451,10 @@ export const updateDonationStatus = async (donationId, status, unitsDonated) => 
 
     if (error) throw new Error(error.message);
 
-    // Completion logic from completed.md:
-    // 1. Institutional Requests: completed when institution confirms.
-    // 2. Individual Requests: completed when BOTH donor and recipient confirm.
+    // Handled by DB Trigger:
+    // When donation status = 'completed', the trigger updates donors_confirmed_count/units_fulfilled
+    // and auto-advances the parent blood_request status to 'completed' if goals are met.
     
-    const requestType = updatedDonation.blood_requests?.request_type || 'individual';
-    
-    if (requestType === 'institution') {
-        // Institutional requests complete as soon as institution confirms
-        if (updatedDonation.institution_confirmed && updatedDonation.status !== 'completed') {
-            const { data: final } = await supabase
-                .from('donations')
-                .update({ status: 'completed' })
-                .eq('id', donationId)
-                .select()
-                .single();
-            return final || updatedDonation;
-        }
-    } else {
-        // Individual requests need BOTH donor and recipient (or requester) confirmation
-        // Note: For now, we use institution_confirmed as a proxy for the 'requester' if they use the dashboard,
-        // but typically individual requests are confirmed via mobile.
-        // If both donor and institution/requester confirmed, set to completed.
-        if (updatedDonation.donor_confirmed && updatedDonation.institution_confirmed && updatedDonation.status !== 'completed') {
-            const { data: final } = await supabase
-                .from('donations')
-                .update({ status: 'completed' })
-                .eq('id', donationId)
-                .select()
-                .single();
-            return final || updatedDonation;
-        }
-    }
-
     return updatedDonation;
 };
 

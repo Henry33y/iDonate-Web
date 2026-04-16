@@ -46,6 +46,7 @@ const Dashboard = () => {
   const [formData, setFormData] = useState({
     blood_type_needed: 'A+', units_needed: 1, urgency_level: 'moderate',
     description: '', date_needed: '', time_needed: '', contact_phone: '',
+    max_donors: 1,
   });
   const [creating, setCreating] = useState(false);
 
@@ -192,12 +193,13 @@ const Dashboard = () => {
         units_needed: parseInt(formData.units_needed, 10),
         urgency_level: formData.urgency_level,
         description: formData.description || null,
+        max_donors: parseInt(formData.max_donors, 10) || 1,
         date_needed: formData.date_needed || null,
         time_needed: formData.time_needed || null,
         contact_phone: formData.contact_phone || null,
       });
       toast.success('Blood request created!');
-      setFormData({ blood_type_needed: 'A+', units_needed: 1, urgency_level: 'moderate', description: '', date_needed: '', time_needed: '', contact_phone: '' });
+      setFormData({ blood_type_needed: 'A+', units_needed: 1, urgency_level: 'moderate', description: '', date_needed: '', time_needed: '', contact_phone: '', max_donors: 1 });
       await loadDashboardData();
       setActiveTab('requests');
     } catch (error) {
@@ -295,7 +297,7 @@ const Dashboard = () => {
 
     // Fulfillment rate
     const total = activeRequests.length;
-    const fulfilled = activeRequests.filter(r => r.status === 'fulfilled').length;
+    const fulfilled = activeRequests.filter(r => r.status === 'completed').length;
     const rate = total > 0 ? Math.round((fulfilled / total) * 100) : 0;
 
     return { months, maxMonthly, bloodTypeCounts, maxBt, rate, total, fulfilled };
@@ -308,7 +310,7 @@ const Dashboard = () => {
 
   // ─── Helpers ───
   const urgencyColor = (l) => ({ critical: 'bg-red-100 text-red-800', high: 'bg-orange-100 text-orange-800', moderate: 'bg-yellow-100 text-yellow-800', low: 'bg-green-100 text-green-800' }[l] || 'bg-gray-100 text-gray-800');
-  const statusColor = (s) => ({ pending: 'bg-blue-100 text-blue-800', fulfilled: 'bg-green-100 text-green-800', cancelled: 'bg-gray-100 text-gray-600' }[s] || 'bg-gray-100 text-gray-800');
+  const statusColor = (s) => ({ open: 'bg-blue-100 text-blue-800', matched: 'bg-yellow-100 text-yellow-800', in_progress: 'bg-orange-100 text-orange-800', completed: 'bg-green-100 text-green-800', cancelled: 'bg-gray-100 text-gray-600', expired: 'bg-gray-100 text-gray-400' }[s] || 'bg-gray-100 text-gray-800');
   const donationStatusColor = (s) => ({ scheduled: 'bg-blue-100 text-blue-800', confirmed: 'bg-indigo-100 text-indigo-800', completed: 'bg-green-100 text-green-800', cancelled: 'bg-gray-100 text-gray-600', no_show: 'bg-red-100 text-red-700' }[s] || 'bg-gray-100 text-gray-800');
 
   // ─── Render Tabs ───
@@ -441,6 +443,12 @@ const Dashboard = () => {
                       className="w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:border-red-500 focus:ring-red-500 text-gray-900" />
                   </div>
                 </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Number of Donors Needed (Target)</label>
+                  <input type="number" min={1} value={formData.max_donors}
+                    onChange={e => setFormData(p => ({ ...p, max_donors: e.target.value }))}
+                    className="w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:border-red-500 focus:ring-red-500 text-gray-900" />
+                </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Urgency Level *</label>
@@ -504,8 +512,10 @@ const Dashboard = () => {
                 <select value={filters.status} onChange={e => setFilters(f => ({ ...f, status: e.target.value }))}
                   className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm bg-white text-gray-700">
                   <option value="">All statuses</option>
-                  <option value="pending">Pending</option>
-                  <option value="fulfilled">Fulfilled</option>
+                  <option value="open">Open</option>
+                  <option value="matched">Matched</option>
+                  <option value="in_progress">In Progress</option>
+                  <option value="completed">Completed</option>
                   <option value="cancelled">Cancelled</option>
                 </select>
                 {(filters.bloodType || filters.urgency || filters.status) && (
@@ -551,12 +561,12 @@ const Dashboard = () => {
                           </td>
                           <td className="px-6 py-4 text-right">
                             <div className="flex items-center justify-end gap-2">
-                              {req.status === 'pending' && (
+                              {['open', 'matched', 'in_progress'].includes(req.status) && (
                                 <>
                                   <button onClick={() => { setEditingRequest(req); setEditForm({ units_needed: req.units_needed, urgency_level: req.urgency_level, description: req.description || '', date_needed: req.date_needed || '', time_needed: req.time_needed || '' }); }}
                                     className="text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-md transition-colors">Edit</button>
-                                  <button onClick={() => handleStatusChange(req.id, 'fulfilled')}
-                                    className="text-xs font-medium text-green-600 bg-green-50 hover:bg-green-100 px-3 py-1.5 rounded-md transition-colors">Fulfill</button>
+                                  <button onClick={() => handleStatusChange(req.id, 'completed')}
+                                    className="text-xs font-medium text-green-600 bg-green-50 hover:bg-green-100 px-3 py-1.5 rounded-md transition-colors">Complete</button>
                                   <button onClick={() => handleStatusChange(req.id, 'cancelled')}
                                     className="text-xs font-medium text-gray-500 bg-gray-50 hover:bg-gray-100 px-3 py-1.5 rounded-md transition-colors">Cancel</button>
                                 </>

@@ -47,7 +47,17 @@ const urgencyColor = (u) => {
   return map[u] || 'bg-gray-100 text-gray-600';
 };
 const statusColor = (s) => {
-  const map = { pending: 'bg-yellow-100 text-yellow-700', fulfilled: 'bg-green-100 text-green-700', cancelled: 'bg-gray-100 text-gray-600', approved: 'bg-green-100 text-green-700', rejected: 'bg-red-100 text-red-700', suspended: 'bg-orange-100 text-orange-700' };
+  const map = { 
+    open: 'bg-blue-100 text-blue-700',
+    matched: 'bg-yellow-100 text-yellow-700',
+    in_progress: 'bg-orange-100 text-orange-700',
+    completed: 'bg-green-100 text-green-700',
+    cancelled: 'bg-gray-100 text-gray-600',
+    expired: 'bg-gray-100 text-gray-400',
+    approved: 'bg-green-100 text-green-700',
+    rejected: 'bg-red-100 text-red-700',
+    suspended: 'bg-orange-100 text-orange-700'
+  };
   return map[s] || 'bg-gray-100 text-gray-600';
 };
 
@@ -465,10 +475,9 @@ const AdminDashboard = () => {
         <p className="text-sm text-gray-500">{filteredRequests.length} request{filteredRequests.length !== 1 ? 's' : ''}</p>
       </div>
 
-      {/* Filters */}
       <div className="flex flex-wrap gap-3">
         <div className="flex gap-2">
-          {['all', 'pending', 'fulfilled', 'cancelled'].map(s => (
+          {['all', 'open', 'matched', 'in_progress', 'completed', 'cancelled'].map(s => (
             <button key={s} onClick={() => setRequestStatusFilter(s)}
               className={`px-3 py-2 rounded-lg text-xs font-medium transition-colors ${requestStatusFilter === s ? 'bg-red-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'}`}>
               {s === 'all' ? 'All Status' : s.charAt(0).toUpperCase() + s.slice(1)}

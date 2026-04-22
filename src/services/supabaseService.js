@@ -276,7 +276,7 @@ export const getInstitutionRequests = async (institutionId) => {
     const { data, error } = await supabase
         .from('blood_requests')
         .select('*')
-        .eq('requester_id', institutionId)
+        .or(`requester_id.eq.${institutionId},institution_id.eq.${institutionId}`)
         .order('created_at', { ascending: false });
 
     if (error) throw new Error(error.message);

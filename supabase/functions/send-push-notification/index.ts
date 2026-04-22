@@ -8,6 +8,7 @@ declare const Deno: {
   env: { get: (key: string) => string | undefined };
 };
 
+// @ts-ignore - Supabase Edge Functions use Deno, which imports via URLs
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
@@ -43,14 +44,25 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Get the requester's institution name for the notification
-    const { data: requesterProfile } = await supabase
+    // Get the requester's institution name or personal name for the notification
+    const { data: requesterInstitute } = await supabase
       .from('institutions')
       .select('institution_name')
       .eq('id', request.requester_id)
       .maybeSingle();
 
-    const institutionName = requesterProfile?.institution_name || 'A medical institution';
+    let requesterName = requesterInstitute?.institution_name;
+
+    if (!requesterName) {
+      // Fallback to individual profile
+      const { data: requesterProfile } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', request.requester_id)
+        .maybeSingle();
+      
+      requesterName = requesterProfile?.full_name || 'Someone';
+    }
 
     // Medical Compatibility Map (Who can donate to whom)
     const COMPATIBILITY_MAP: Record<string, string[]> = {
@@ -104,7 +116,7 @@ Deno.serve(async (req) => {
       : 'Low';
 
     const notificationTitle = `${urgencyLabel}: ${request.blood_type_needed} Blood Needed`;
-    const notificationBody = `${institutionName} needs ${request.units_needed} unit${request.units_needed > 1 ? 's' : ''} of ${request.blood_type_needed} blood. Tap to respond.`;
+    const notificationBody = `${requesterName} needs ${request.units_needed} unit${request.units_needed > 1 ? 's' : ''} of ${request.blood_type_needed} blood. Tap to respond.`;
 
     // Persist notifications in the database for history/badges
     const notificationRecords = matchingDonors?.filter((d: any) => d.id !== request.requester_id).map((donor: any) => ({
@@ -116,7 +128,7 @@ Deno.serve(async (req) => {
         requestId: request.id,
         bloodType: request.blood_type_needed,
         urgency: request.urgency_level,
-        institutionName: institutionName
+        requesterName: requesterName
       }
     }));
 

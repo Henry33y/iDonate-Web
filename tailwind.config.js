@@ -7,6 +7,9 @@ export default {
   darkMode: 'class',
   theme: {
     extend: {
+      fontFamily: {
+        sans: ['Inter', 'sans-serif'],
+      },
       colors: {
         primary: {
           50: '#fef2f2',

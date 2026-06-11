@@ -258,6 +258,7 @@ const Dashboard = () => {
   }, [donations]);
 
   const analyticsData = useMemo(() => {
+    // 1. Monthly completed donations
     const months = [];
     for (let i = 5; i >= 0; i--) {
       const d = new Date();
@@ -269,17 +270,81 @@ const Dashboard = () => {
     }
     const maxMonthly = Math.max(...months.map(m => m.count), 1);
 
+    // 2. Blood Type Demand
     const bloodTypeCounts = {};
     activeRequests.forEach(r => {
       bloodTypeCounts[r.blood_type_needed] = (bloodTypeCounts[r.blood_type_needed] || 0) + 1;
     });
     const maxBt = Math.max(...Object.values(bloodTypeCounts), 1);
 
+    // 3. Request Fulfillment Rate
     const total = activeRequests.length;
     const fulfilled = activeRequests.filter(r => r.status === 'completed').length;
     const rate = total > 0 ? Math.round((fulfilled / total) * 100) : 0;
 
-    return { months, maxMonthly, bloodTypeCounts, maxBt, rate, total, fulfilled };
+    // 4. Total Units Collected
+    const totalUnitsCollected = donations
+      .filter(don => don.status === 'completed')
+      .reduce((acc, curr) => acc + (curr.units_donated || 0), 0);
+
+    // 5. Donor Retention Rate
+    const completedDonations = donations.filter(don => don.status === 'completed');
+    const donorDonationCounts = {};
+    completedDonations.forEach(don => {
+      if (don.donor_id) {
+        donorDonationCounts[don.donor_id] = (donorDonationCounts[don.donor_id] || 0) + 1;
+      }
+    });
+    const totalUniqueDonors = Object.keys(donorDonationCounts).length;
+    const retainedDonorsCount = Object.values(donorDonationCounts).filter(count => count >= 2).length;
+    const donorRetentionRate = totalUniqueDonors > 0 ? Math.round((retainedDonorsCount / totalUniqueDonors) * 100) : 0;
+
+    // 6. Appointment status breakdown
+    const apptStatusBreakdown = {
+      scheduled: donations.filter(d => d.status === 'scheduled').length,
+      confirmed: donations.filter(d => d.status === 'confirmed').length,
+      completed: donations.filter(d => d.status === 'completed').length,
+      cancelled: donations.filter(d => d.status === 'cancelled').length,
+      no_show: donations.filter(d => d.status === 'no_show').length,
+    };
+    const totalAppts = donations.length;
+
+    // 7. Supply vs Demand comparisons per blood type
+    const bloodTypeDemandSupply = BLOOD_TYPES.map(bt => {
+      const demand = activeRequests.filter(r => r.blood_type_needed === bt).length;
+      const supply = donations.filter(d => d.status === 'completed' && (d.donors?.blood_type === bt || d.donors?.[0]?.blood_type === bt)).length;
+      return { bloodType: bt, demand, supply };
+    });
+    const maxDemandOrSupply = Math.max(
+      ...bloodTypeDemandSupply.map(x => Math.max(x.demand, x.supply)),
+      1
+    );
+
+    // 8. Urgency Distribution of requests
+    const urgencyBreakdown = {
+      critical: activeRequests.filter(r => r.urgency_level === 'critical').length,
+      high: activeRequests.filter(r => r.urgency_level === 'high').length,
+      moderate: activeRequests.filter(r => r.urgency_level === 'moderate').length,
+      low: activeRequests.filter(r => r.urgency_level === 'low').length,
+    };
+
+    return { 
+      months, 
+      maxMonthly, 
+      bloodTypeCounts, 
+      maxBt, 
+      rate, 
+      total, 
+      fulfilled, 
+      totalUnitsCollected, 
+      donorRetentionRate, 
+      totalUniqueDonors,
+      apptStatusBreakdown, 
+      totalAppts, 
+      bloodTypeDemandSupply, 
+      maxDemandOrSupply,
+      urgencyBreakdown 
+    };
   }, [donations, activeRequests]);
 
   const urgencyColor = (l) => ({ critical: 'bg-red-100 text-red-700', high: 'bg-orange-100 text-orange-700', moderate: 'bg-amber-100 text-amber-700', low: 'bg-emerald-100 text-emerald-700' }[l] || 'bg-gray-100 text-gray-700');
@@ -596,7 +661,7 @@ const Dashboard = () => {
                               className="flex-1 py-2 text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors">Cancel</button>
                           </>
                         )}
-                        <button onClick={() => handleDelete(req.id)}
+                        <button onClick={() => setDeletingRequestId(req.id)}
                           className="px-4 py-2 text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 rounded-xl transition-colors">Delete</button>
                       </div>
                     </div>
@@ -804,64 +869,198 @@ const Dashboard = () => {
       case 'analytics':
         return (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Monthly Trends */}
-              <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-sm border border-slate-100 p-8">
-                <h3 className="text-lg font-black text-slate-900 mb-6">Monthly Collection</h3>
-                <div className="flex items-end justify-between h-48 gap-2">
-                  {analyticsData.months.map(m => (
-                    <div key={m.key} className="flex-1 flex flex-col items-center gap-2 group">
-                      <span className="text-xs font-bold text-indigo-600 opacity-0 group-hover:opacity-100 transition-opacity">{m.count}</span>
-                      <div className="w-full max-w-[40px] bg-gradient-to-t from-indigo-100 to-indigo-500 rounded-t-xl transition-all duration-500 group-hover:shadow-lg group-hover:shadow-indigo-500/20"
-                        style={{ height: `${(m.count / analyticsData.maxMonthly) * 120}px`, minHeight: '8px' }} />
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{m.label}</span>
-                    </div>
-                  ))}
+            {/* KPI Cards Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-3xl p-6 shadow-md shadow-indigo-500/10 text-white transform hover:-translate-y-1 transition-all duration-300">
+                <span className="text-[10px] font-black uppercase tracking-wider text-indigo-100">Total Units Collected</span>
+                <p className="text-4xl font-black mt-2">{analyticsData.totalUnitsCollected}</p>
+                <div className="mt-4 flex items-center text-xs text-indigo-100 font-medium">
+                  <span className="bg-white/20 px-2 py-0.5 rounded-full mr-2">Completed</span>
+                  From successful donations
                 </div>
               </div>
-
-              {/* Blood Type Demand */}
-              <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-sm border border-slate-100 p-8">
-                <h3 className="text-lg font-black text-slate-900 mb-6">Blood Type Demand</h3>
-                <div className="space-y-4">
-                  {BLOOD_TYPES.map(bt => {
-                    const count = analyticsData.bloodTypeCounts[bt] || 0;
-                    return (
-                      <div key={bt} className="flex items-center gap-4">
-                        <span className="w-10 text-sm font-black text-slate-700">{bt}</span>
-                        <div className="flex-1 bg-slate-100 rounded-full h-3 overflow-hidden">
-                          <div className="h-full bg-gradient-to-r from-rose-400 to-rose-600 rounded-full transition-all duration-1000 ease-out"
-                            style={{ width: `${Math.max((count / analyticsData.maxBt) * 100, count > 0 ? 5 : 0)}%` }}>
-                          </div>
-                        </div>
-                        <span className="w-8 text-right text-xs font-bold text-slate-500">{count}</span>
-                      </div>
-                    );
-                  })}
+              <div className="bg-gradient-to-br from-rose-500 to-rose-600 rounded-3xl p-6 shadow-md shadow-rose-500/10 text-white transform hover:-translate-y-1 transition-all duration-300">
+                <span className="text-[10px] font-black uppercase tracking-wider text-rose-100">Fulfillment Rate</span>
+                <p className="text-4xl font-black mt-2">{analyticsData.rate}%</p>
+                <div className="mt-4 flex items-center text-xs text-rose-100 font-medium">
+                  <span className="bg-white/20 px-2 py-0.5 rounded-full mr-2">{analyticsData.fulfilled}/{analyticsData.total}</span>
+                  Requests fulfilled
+                </div>
+              </div>
+              <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-3xl p-6 shadow-md shadow-emerald-500/10 text-white transform hover:-translate-y-1 transition-all duration-300">
+                <span className="text-[10px] font-black uppercase tracking-wider text-emerald-100">Donor Retention Rate</span>
+                <p className="text-4xl font-black mt-2">{analyticsData.donorRetentionRate}%</p>
+                <div className="mt-4 flex items-center text-xs text-emerald-100 font-medium">
+                  <span className="bg-white/20 px-2 py-0.5 rounded-full mr-2">{analyticsData.totalUniqueDonors} Donors</span>
+                  Repeat donors count
+                </div>
+              </div>
+              <div className="bg-gradient-to-br from-amber-500 to-amber-600 rounded-3xl p-6 shadow-md shadow-amber-500/10 text-white transform hover:-translate-y-1 transition-all duration-300">
+                <span className="text-[10px] font-black uppercase tracking-wider text-amber-100">Pending Actions</span>
+                <p className="text-4xl font-black mt-2">{awaitingVerification.length}</p>
+                <div className="mt-4 flex items-center text-xs text-amber-100 font-medium">
+                  <span className="bg-white/20 px-2 py-0.5 rounded-full mr-2">Review</span>
+                  Donations to verify
                 </div>
               </div>
             </div>
 
-            {/* Fulfillment Rate */}
-            <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-3xl shadow-lg p-8 relative overflow-hidden">
-              <div className="absolute top-0 right-0 -mt-20 -mr-20 w-64 h-64 bg-emerald-500 opacity-10 rounded-full blur-3xl"></div>
-              <div className="relative z-10 flex flex-col md:flex-row items-center gap-8 md:gap-12">
-                <div className="relative w-40 h-40">
-                  <svg className="w-40 h-40 transform -rotate-90 drop-shadow-xl" viewBox="0 0 128 128">
-                    <circle cx="64" cy="64" r="56" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="12" />
-                    <circle cx="64" cy="64" r="56" fill="none" stroke="#10b981" strokeWidth="12"
-                      strokeDasharray={`${analyticsData.rate * 3.52} 352`} strokeLinecap="round" className="transition-all duration-1000 ease-out" />
-                  </svg>
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <span className="text-3xl font-black text-white">{analyticsData.rate}%</span>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Monthly Collections Trend */}
+              <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-sm border border-slate-100 p-6 lg:col-span-2 flex flex-col justify-between">
+                <div>
+                  <h3 className="text-lg font-black text-slate-800 mb-1">Monthly Donation Collection</h3>
+                  <p className="text-xs text-slate-400 font-medium mb-6">Completed donations volume over the last 6 months</p>
+                </div>
+                
+                {/* SVG Chart */}
+                <div className="relative h-56 flex flex-col justify-end w-full">
+                  {/* Grid Lines */}
+                  <div className="absolute inset-0 flex flex-col justify-between pointer-events-none pb-8">
+                    {[0, 1, 2, 3].map(i => (
+                      <div key={i} className="w-full border-t border-slate-100 flex justify-end text-[9px] text-slate-300 font-bold pr-2 pt-1">
+                        {Math.round((analyticsData.maxMonthly / 3) * (3 - i))}
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Columns */}
+                  <div className="relative z-10 flex items-end justify-around h-44 gap-2 px-4 border-b border-slate-100 pb-2">
+                    {analyticsData.months.map(m => {
+                      const heightPct = (m.count / analyticsData.maxMonthly) * 100;
+                      return (
+                        <div key={m.key} className="flex-1 flex flex-col items-center gap-2 group max-w-[50px]">
+                          {/* Tooltip */}
+                          <div className="absolute bottom-full mb-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-slate-900 text-white text-[10px] font-bold px-2 py-1 rounded-lg pointer-events-none shadow-md">
+                            {m.count} Donations
+                          </div>
+                          
+                          {/* Bar */}
+                          <div className="w-full bg-gradient-to-t from-indigo-500/80 to-indigo-600 rounded-t-xl transition-all duration-500 group-hover:scale-y-105 group-hover:shadow-lg group-hover:shadow-indigo-500/20 shadow-inner"
+                            style={{ height: `${heightPct}%`, minHeight: '6px' }} />
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* X Labels */}
+                  <div className="flex justify-around mt-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                    {analyticsData.months.map(m => (
+                      <span key={m.key} className="w-[50px] text-center">{m.label}</span>
+                    ))}
                   </div>
                 </div>
-                <div className="text-center md:text-left">
-                  <h3 className="text-2xl font-black text-white mb-2">Fulfillment Rate</h3>
-                  <p className="text-slate-400 font-medium mb-4">{analyticsData.fulfilled} of {analyticsData.total} requests successfully fulfilled</p>
-                  <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 backdrop-blur border border-white/10 text-emerald-400 text-sm font-bold">
-                    <CheckCircleIcon className="h-5 w-5" /> Excellent standing
+              </div>
+
+              {/* Appointment Status Ratios */}
+              <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-sm border border-slate-100 p-6 flex flex-col justify-between">
+                <div>
+                  <h3 className="text-lg font-black text-slate-800 mb-1">Appointment Ratios</h3>
+                  <p className="text-xs text-slate-400 font-medium mb-6">Distribution of registered schedules by outcome</p>
+                </div>
+
+                <div className="space-y-5">
+                  {/* Segmented Stacked Progress Bar */}
+                  <div className="w-full h-4 rounded-full bg-slate-100 overflow-hidden flex shadow-inner">
+                    {Object.entries(analyticsData.apptStatusBreakdown).map(([status, count]) => {
+                      if (count === 0 || analyticsData.totalAppts === 0) return null;
+                      const pct = (count / analyticsData.totalAppts) * 100;
+                      const colors = {
+                        completed: 'bg-emerald-500',
+                        confirmed: 'bg-indigo-500',
+                        scheduled: 'bg-blue-500',
+                        no_show: 'bg-rose-500',
+                        cancelled: 'bg-slate-400',
+                      };
+                      return (
+                        <div key={status} className={`${colors[status]} h-full transition-all`}
+                          style={{ width: `${pct}%` }} title={`${status}: ${count} (${Math.round(pct)}%)`} />
+                      );
+                    })}
                   </div>
+
+                  {/* Legend */}
+                  <div className="grid grid-cols-2 gap-3 pt-2">
+                    {Object.entries(analyticsData.apptStatusBreakdown).map(([status, count]) => {
+                      const pct = analyticsData.totalAppts > 0 ? Math.round((count / analyticsData.totalAppts) * 100) : 0;
+                      const colors = {
+                        completed: 'bg-emerald-500 text-emerald-700 bg-emerald-50',
+                        confirmed: 'bg-indigo-500 text-indigo-700 bg-indigo-50',
+                        scheduled: 'bg-blue-500 text-blue-700 bg-blue-50',
+                        no_show: 'bg-rose-500 text-rose-700 bg-rose-50',
+                        cancelled: 'bg-slate-400 text-slate-600 bg-slate-100',
+                      };
+                      const dotColors = {
+                        completed: 'bg-emerald-500',
+                        confirmed: 'bg-indigo-500',
+                        scheduled: 'bg-blue-500',
+                        no_show: 'bg-rose-500',
+                        cancelled: 'bg-slate-400',
+                      };
+                      return (
+                        <div key={status} className={`p-2.5 rounded-2xl border border-transparent flex items-center justify-between text-xs font-semibold ${colors[status]}`}>
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span className={`w-2.5 h-2.5 rounded-full ${dotColors[status]} flex-shrink-0`} />
+                            <span className="capitalize truncate">{status.replace('_', ' ')}</span>
+                          </div>
+                          <span>{count} ({pct}%)</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Blood Type Supply vs Demand Chart */}
+            <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-sm border border-slate-100 p-8">
+              <div className="mb-6">
+                <h3 className="text-lg font-black text-slate-800 mb-1">Blood Type Supply vs. Demand</h3>
+                <p className="text-xs text-slate-400 font-medium">Comparison of posted blood requests (Demand) against completed donations (Supply) by blood group</p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6">
+                {analyticsData.bloodTypeDemandSupply.map(item => {
+                  const demandPct = (item.demand / analyticsData.maxDemandOrSupply) * 100;
+                  const supplyPct = (item.supply / analyticsData.maxDemandOrSupply) * 100;
+                  return (
+                    <div key={item.bloodType} className="flex items-center gap-4 bg-slate-50/50 p-3.5 rounded-2xl border border-slate-100">
+                      <span className="w-10 text-sm font-black text-slate-700 flex-shrink-0">{item.bloodType}</span>
+                      
+                      {/* Side-by-side Dual Progress Bar */}
+                      <div className="flex-1 space-y-1.5">
+                        {/* Demand */}
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1 bg-slate-200/50 rounded-full h-2 overflow-hidden">
+                            <div className="h-full bg-gradient-to-r from-rose-400 to-rose-600 rounded-full transition-all duration-1000 ease-out"
+                              style={{ width: `${demandPct}%` }} />
+                          </div>
+                          <span className="text-[10px] font-black text-rose-600 w-5 text-right">{item.demand}</span>
+                        </div>
+                        
+                        {/* Supply */}
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1 bg-slate-200/50 rounded-full h-2 overflow-hidden">
+                            <div className="h-full bg-gradient-to-r from-emerald-400 to-emerald-600 rounded-full transition-all duration-1000 ease-out"
+                              style={{ width: `${supplyPct}%` }} />
+                          </div>
+                          <span className="text-[10px] font-black text-emerald-600 w-5 text-right">{item.supply}</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Chart Legend */}
+              <div className="flex items-center justify-center gap-6 mt-6 pt-4 border-t border-slate-100 text-xs font-bold uppercase tracking-wider text-slate-400">
+                <div className="flex items-center gap-2">
+                  <span className="w-3.5 h-3.5 rounded-full bg-gradient-to-r from-rose-400 to-rose-600" />
+                  <span>Requests (Demand)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-3.5 h-3.5 rounded-full bg-gradient-to-r from-emerald-400 to-emerald-600" />
+                  <span>Donations Completed (Supply)</span>
                 </div>
               </div>
             </div>
@@ -989,22 +1188,25 @@ const Dashboard = () => {
               { key: 'requests', icon: ClipboardDocumentListIcon, label: 'Manage Requests' },
               { key: 'donations', icon: CalendarDaysIcon, label: 'Appointments' },
               { key: 'analytics', icon: ChartBarIcon, label: 'Analytics' },
-            ].map(({ key, icon: Icon, label }) => (
-              <button key={key} onClick={() => setActiveTab(key)}
-                className={`group flex items-center w-full px-4 py-3.5 rounded-2xl text-sm font-bold transition-all duration-300 ${
-                  activeTab === key 
-                    ? 'bg-rose-50 text-rose-700 shadow-sm border border-rose-100/50' 
-                    : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900 border border-transparent'
-                }`}>
-                <Icon className={`h-5 w-5 mr-3 transition-colors ${activeTab === key ? 'text-rose-600' : 'text-slate-400 group-hover:text-slate-600'}`} />
-                {label}
-                {key === 'donations' && awaitingVerification.length > 0 && (
-                  <span className="ml-auto bg-amber-500 text-white text-[10px] py-0.5 px-2 rounded-full font-black shadow-sm">
-                    {awaitingVerification.length}
-                  </span>
-                )}
-              </button>
-            ))}
+            ].map((tab) => {
+              const Icon = tab.icon;
+              return (
+                <button key={tab.key} onClick={() => setActiveTab(tab.key)}
+                  className={`group flex items-center w-full px-4 py-3.5 rounded-2xl text-sm font-bold transition-all duration-300 ${
+                    activeTab === tab.key 
+                      ? 'bg-rose-50 text-rose-700 shadow-sm border border-rose-100/50' 
+                      : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900 border border-transparent'
+                  }`}>
+                  <Icon className={`h-5 w-5 mr-3 transition-colors ${activeTab === tab.key ? 'text-rose-600' : 'text-slate-400 group-hover:text-slate-600'}`} />
+                  {tab.label}
+                  {tab.key === 'donations' && awaitingVerification.length > 0 && (
+                    <span className="ml-auto bg-amber-500 text-white text-[10px] py-0.5 px-2 rounded-full font-black shadow-sm">
+                      {awaitingVerification.length}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
           </nav>
 
           <div className="p-4 mt-auto">

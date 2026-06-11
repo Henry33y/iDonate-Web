@@ -2,10 +2,10 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import {
   getPlatformStats,
   getAllInstitutions,
-  getInstitutionsByStatus,
   updateInstitutionStatus,
   getAllUsers,
   getAllBloodRequests,
+  getAllDonations,
 } from '../services/supabaseService';
 import { logoutAdmin, getCurrentAdmin } from '../services/authService';
 import { useNavigate } from 'react-router-dom';
@@ -28,6 +28,7 @@ import {
   NoSymbolIcon,
   ChevronRightIcon,
   BellIcon,
+  ChartBarIcon,
 } from '@heroicons/react/24/outline';
 import { toast } from 'react-toastify';
 
@@ -37,6 +38,7 @@ const TABS = [
   { key: 'institutions', label: 'Institutions', icon: BuildingOfficeIcon },
   { key: 'users', label: 'Users', icon: UsersIcon },
   { key: 'requests', label: 'Blood Requests', icon: ClipboardDocumentListIcon },
+  { key: 'analytics', label: 'Analytics', icon: ChartBarIcon },
   { key: 'settings', label: 'Settings', icon: Cog6ToothIcon },
 ];
 
@@ -71,6 +73,7 @@ const AdminDashboard = () => {
   const [institutions, setInstitutions] = useState([]);
   const [users, setUsers] = useState([]);
   const [bloodRequests, setBloodRequests] = useState([]);
+  const [donations, setDonations] = useState([]);
 
   // UI state
   const [loading, setLoading] = useState(true);
@@ -118,11 +121,13 @@ const AdminDashboard = () => {
         getAllInstitutions(),
         getAllUsers(),
         getAllBloodRequests(),
+        getAllDonations(),
       ]);
       if (results[0].status === 'fulfilled') setStats(results[0].value);
       if (results[1].status === 'fulfilled') setInstitutions(results[1].value);
       if (results[2].status === 'fulfilled') setUsers(results[2].value);
       if (results[3].status === 'fulfilled') setBloodRequests(results[3].value);
+      if (results[4].status === 'fulfilled') setDonations(results[4].value);
       // Log any failures
       results.forEach((r, i) => {
         if (r.status === 'rejected') console.error(`[Admin] Query ${i} failed:`, r.reason);
@@ -239,6 +244,84 @@ const AdminDashboard = () => {
     }
     return result;
   }, [bloodRequests, requestStatusFilter, requestUrgencyFilter]);
+
+  const adminAnalyticsData = useMemo(() => {
+    // 1. Monthly registrations vs donations
+    const months = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date();
+      d.setMonth(d.getMonth() - i);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      const label = d.toLocaleString('default', { month: 'short' });
+      const completedCount = donations.filter(don => don.status === 'completed' && don.scheduled_date?.startsWith(key)).length;
+      const signupCount = users.filter(u => u.created_at?.startsWith(key)).length;
+      months.push({ key, label, completedCount, signupCount });
+    }
+    const maxMonthVal = Math.max(...months.map(m => Math.max(m.completedCount, m.signupCount)), 1);
+
+    // 2. Blood type registry distribution (Donors by Blood Type)
+    const bloodTypesList = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+    const donorCountsByBloodType = {};
+    bloodTypesList.forEach(bt => { donorCountsByBloodType[bt] = 0; });
+    users.forEach(u => {
+      const donorProfile = u.donors?.[0] || u.donors;
+      const bt = donorProfile?.blood_type;
+      if (bt && bloodTypesList.includes(bt)) {
+        donorCountsByBloodType[bt] = (donorCountsByBloodType[bt] || 0) + 1;
+      }
+    });
+    const maxBloodTypeCount = Math.max(...Object.values(donorCountsByBloodType), 1);
+
+    // 3. Urgency breakdown of all requests
+    const urgencyBreakdown = {
+      critical: bloodRequests.filter(r => r.urgency_level === 'critical').length,
+      high: bloodRequests.filter(r => r.urgency_level === 'high').length,
+      moderate: bloodRequests.filter(r => r.urgency_level === 'moderate').length,
+      low: bloodRequests.filter(r => r.urgency_level === 'low').length,
+    };
+    const totalRequestsVal = bloodRequests.length || 1;
+
+    // 4. Matching efficiency
+    const totalReqs = bloodRequests.length;
+    const matchedReqs = bloodRequests.filter(r => ['matched', 'in_progress', 'completed'].includes(r.status)).length;
+    const matchingRate = totalReqs > 0 ? Math.round((matchedReqs / totalReqs) * 100) : 0;
+
+    // 5. Geocoded coverage
+    const totalDonorsVal = users.filter(u => u.user_type === 'donor').length;
+    const geocodedDonors = users.filter(u => u.user_type === 'donor' && (u.donors?.[0]?.location || u.donors?.location)).length;
+    const donorCoverageRate = totalDonorsVal > 0 ? Math.round((geocodedDonors / totalDonorsVal) * 100) : 0;
+
+    // 6. Top Performing Institutions
+    const instCompletedCounts = {};
+    donations.filter(d => d.status === 'completed').forEach(d => {
+      if (d.institution_id) {
+        instCompletedCounts[d.institution_id] = (instCompletedCounts[d.institution_id] || 0) + 1;
+      }
+    });
+
+    const topInstitutions = institutions.map(inst => ({
+      ...inst,
+      completedCount: instCompletedCounts[inst.id] || 0
+    })).sort((a, b) => b.completedCount - a.completedCount).slice(0, 5);
+
+    const totalBloodUnits = donations
+      .filter(don => don.status === 'completed')
+      .reduce((acc, curr) => acc + (curr.units_donated || 0), 0);
+
+    return {
+      months,
+      maxMonthVal,
+      donorCountsByBloodType,
+      maxBloodTypeCount,
+      urgencyBreakdown,
+      totalRequests: totalRequestsVal,
+      matchingRate,
+      donorCoverageRate,
+      topInstitutions,
+      totalBloodUnits,
+      totalDonors: totalDonorsVal
+    };
+  }, [donations, users, bloodRequests, institutions]);
 
   // ─── Loading State ──────────────────────────────────────────────
   if (loading) {
@@ -578,6 +661,212 @@ const AdminDashboard = () => {
     </div>
   );
 
+  // ─── Render Analytics Tab ──────────────────────────────────────
+  const renderAnalytics = () => {
+    return (
+      <div className="space-y-6 animate-in fade-in duration-500">
+        <div>
+          <h2 className="text-xl font-bold text-gray-900 mb-1">Platform Analytics</h2>
+          <p className="text-sm text-gray-500 font-medium">Detailed statistical overview of the iDonate blood coordination platform</p>
+        </div>
+
+        {/* Health Grid Metrics */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="bg-gradient-to-br from-red-500 to-red-600 rounded-2xl p-6 text-white shadow-lg shadow-red-500/10">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-red-100">Total Blood Donated</span>
+            <p className="text-4xl font-extrabold mt-2">{adminAnalyticsData.totalBloodUnits} Units</p>
+            <p className="text-xs text-red-100 mt-4 font-medium">From successful completed donations</p>
+          </div>
+          <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-2xl p-6 text-white shadow-lg shadow-indigo-500/10">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-100">Matching Efficiency</span>
+            <p className="text-4xl font-extrabold mt-2">{adminAnalyticsData.matchingRate}%</p>
+            <p className="text-xs text-indigo-100 mt-4 font-medium">Requests with at least 1 donor match</p>
+          </div>
+          <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-2xl p-6 text-white shadow-lg shadow-emerald-500/10">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-100">Donor Coordinates Coverage</span>
+            <p className="text-4xl font-extrabold mt-2">{adminAnalyticsData.donorCoverageRate}%</p>
+            <p className="text-xs text-emerald-100 mt-4 font-medium">{adminAnalyticsData.totalDonors} registered platform donors</p>
+          </div>
+          <div className="bg-gradient-to-br from-amber-500 to-amber-600 rounded-2xl p-6 text-white shadow-lg shadow-amber-500/10">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-amber-100">Verification Pipeline</span>
+            <p className="text-4xl font-extrabold mt-2">{stats?.pendingInstitutions || 0}</p>
+            <p className="text-xs text-amber-100 mt-4 font-medium">Pending operating license reviews</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Monthly Growth Compare Chart */}
+          <div className="bg-white rounded-2xl border border-gray-100 p-6 lg:col-span-2 flex flex-col justify-between shadow-sm">
+            <div>
+              <h3 className="text-base font-bold text-gray-900 mb-1">Monthly Platform Growth & Activity</h3>
+              <p className="text-xs text-gray-400 font-medium mb-6">Comparison of user signups (Donors/Hospitals) against successful donations</p>
+            </div>
+
+            <div className="relative h-56 flex flex-col justify-end w-full">
+              {/* Grid Lines */}
+              <div className="absolute inset-0 flex flex-col justify-between pointer-events-none pb-8">
+                {[0, 1, 2, 3].map(i => (
+                  <div key={i} className="w-full border-t border-gray-100 flex justify-end text-[9px] text-gray-300 font-bold pr-2 pt-1">
+                    {Math.round((adminAnalyticsData.maxMonthVal / 3) * (3 - i))}
+                  </div>
+                ))}
+              </div>
+
+              {/* Columns */}
+              <div className="relative z-10 flex items-end justify-around h-44 gap-2 px-4 border-b border-gray-100 pb-2">
+                {adminAnalyticsData.months.map(m => {
+                  const signupPct = (m.signupCount / adminAnalyticsData.maxMonthVal) * 100;
+                  const completedPct = (m.completedCount / adminAnalyticsData.maxMonthVal) * 100;
+                  return (
+                    <div key={m.key} className="flex-1 flex flex-col items-center gap-2 group max-w-[60px]">
+                      {/* Tooltip */}
+                      <div className="absolute bottom-full mb-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-slate-900 text-white text-[10px] font-bold px-2 py-1 rounded-lg pointer-events-none shadow-md z-30">
+                        {m.signupCount} Signups · {m.completedCount} Donations
+                      </div>
+                      
+                      {/* Double Bars */}
+                      <div className="w-full flex gap-1.5 items-end h-full">
+                        <div className="flex-1 bg-gradient-to-t from-blue-500/80 to-blue-600 rounded-t-md shadow-inner"
+                          style={{ height: `${signupPct}%`, minHeight: '4px' }} />
+                        <div className="flex-1 bg-gradient-to-t from-red-500/80 to-red-600 rounded-t-md shadow-inner"
+                          style={{ height: `${completedPct}%`, minHeight: '4px' }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* X Labels */}
+              <div className="flex justify-around mt-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                {adminAnalyticsData.months.map(m => (
+                  <span key={m.key} className="w-[60px] text-center">{m.label}</span>
+                ))}
+              </div>
+            </div>
+
+            {/* Legend */}
+            <div className="flex items-center justify-center gap-6 mt-6 pt-4 border-t border-gray-100 text-[10px] font-bold uppercase tracking-wider text-gray-400">
+              <div className="flex items-center gap-2">
+                <span className="w-3.5 h-3.5 rounded-sm bg-gradient-to-r from-blue-400 to-blue-600" />
+                <span>New User Signups</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-3.5 h-3.5 rounded-sm bg-gradient-to-r from-red-400 to-red-600" />
+                <span>Completed Donations</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Urgency Distribution Doughnut-grid */}
+          <div className="bg-white rounded-2xl border border-gray-100 p-6 flex flex-col justify-between shadow-sm">
+            <div>
+              <h3 className="text-base font-bold text-gray-900 mb-1">Request Urgency Ratios</h3>
+              <p className="text-xs text-gray-400 font-medium mb-6">Urgency profile of active demands on the platform</p>
+            </div>
+
+            <div className="space-y-4">
+              {['critical', 'high', 'moderate', 'low'].map(u => {
+                const count = adminAnalyticsData.urgencyBreakdown[u] || 0;
+                const pct = Math.round((count / adminAnalyticsData.totalRequests) * 100) || 0;
+                const strokeColor = {
+                  critical: '#dc2626',
+                  high: '#ea580c',
+                  moderate: '#ca8a04',
+                  low: '#16a34a',
+                }[u];
+                const textColor = {
+                  critical: 'text-red-700 bg-red-50 border-red-100',
+                  high: 'text-orange-700 bg-orange-50 border-orange-100',
+                  moderate: 'text-yellow-700 bg-yellow-50 border-yellow-100',
+                  low: 'text-green-700 bg-green-50 border-green-100',
+                }[u];
+                const circleBg = {
+                  critical: 'stroke-red-100',
+                  high: 'stroke-orange-100',
+                  moderate: 'stroke-yellow-100',
+                  low: 'stroke-green-100',
+                }[u];
+                return (
+                  <div key={u} className={`flex items-center justify-between p-3 rounded-xl border ${textColor}`}>
+                    <div className="flex items-center gap-3">
+                      <svg className="w-9 h-9 transform -rotate-90" viewBox="0 0 36 36">
+                        <circle cx="18" cy="18" r="15.915" fill="none" className={circleBg} strokeWidth="3.5" />
+                        <circle cx="18" cy="18" r="15.915" fill="none" stroke={strokeColor} strokeWidth="3.5"
+                          strokeDasharray={`${pct} 100`} strokeLinecap="round" />
+                      </svg>
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold capitalize">{u}</p>
+                        <p className="text-[10px] opacity-75 font-semibold">{count} request{count !== 1 ? 's' : ''}</p>
+                      </div>
+                    </div>
+                    <span className="text-xs font-extrabold">{pct}%</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Blood Type Registry Distribution */}
+          <div className="bg-white rounded-2xl border border-gray-100 p-6 lg:col-span-2 shadow-sm">
+            <div className="mb-6">
+              <h3 className="text-base font-bold text-gray-900 mb-1">Donor Registry Distribution</h3>
+              <p className="text-xs text-gray-400 font-medium">Breakdown of registered voluntary donors by blood type</p>
+            </div>
+
+            <div className="space-y-3.5">
+              {Object.entries(adminAnalyticsData.donorCountsByBloodType).map(([bt, count]) => {
+                const pct = (count / adminAnalyticsData.maxBloodTypeCount) * 100;
+                return (
+                  <div key={bt} className="flex items-center gap-4">
+                    <span className="w-10 text-xs font-black text-gray-700">{bt}</span>
+                    <div className="flex-1 bg-gray-100 rounded-full h-3 overflow-hidden shadow-inner font-sans">
+                      <div className="h-full bg-gradient-to-r from-red-400 to-red-600 rounded-full transition-all duration-1000 ease-out"
+                        style={{ width: `${Math.max(pct, count > 0 ? 3 : 0)}%` }} />
+                    </div>
+                    <span className="w-16 text-right text-xs font-bold text-gray-500">{count} donors</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Top Institutions by completed donations */}
+          <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm flex flex-col justify-between">
+            <div>
+              <h3 className="text-base font-bold text-gray-900 mb-1">Top Performing Centers</h3>
+              <p className="text-xs text-gray-400 font-medium mb-6">Hospitals & Blood Banks by completed donations volume</p>
+            </div>
+
+            {adminAnalyticsData.topInstitutions.length === 0 ? (
+              <div className="text-center py-12 text-gray-400 text-xs">No donations recorded yet</div>
+            ) : (
+              <div className="space-y-4">
+                {adminAnalyticsData.topInstitutions.map((inst, index) => (
+                  <div key={inst.id} className="flex items-center justify-between p-3 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-100 transition-colors">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-6 h-6 rounded-full bg-red-100 text-red-700 text-xs font-black flex items-center justify-center flex-shrink-0">
+                        {index + 1}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold text-gray-900 truncate">{inst.name}</p>
+                        <p className="text-[10px] text-gray-400 uppercase font-semibold">{inst.type || 'Center'}</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-xs font-extrabold text-red-600">{inst.completedCount} units</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   // ─── Content Router ─────────────────────────────────────────────
   const renderContent = () => {
     switch (activeTab) {
@@ -585,6 +874,7 @@ const AdminDashboard = () => {
       case 'institutions': return renderInstitutions();
       case 'users': return renderUsers();
       case 'requests': return renderRequests();
+      case 'analytics': return renderAnalytics();
       case 'settings': return renderSettings();
       default: return renderOverview();
     }
@@ -656,22 +946,25 @@ const AdminDashboard = () => {
         </div>
 
         <nav className="flex-1 p-4 space-y-1">
-          {TABS.map(({ key, label, icon: Icon }) => (
-            <button key={key} onClick={() => setActiveTab(key)}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
-                activeTab === key
-                  ? 'bg-red-50 text-red-700'
-                  : 'text-gray-600 hover:bg-gray-100'
-              }`}>
-              <Icon className="h-5 w-5" />
-              {label}
-              {key === 'institutions' && stats?.pendingInstitutions > 0 && (
-                <span className="ml-auto bg-yellow-400 text-yellow-900 text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
-                  {stats.pendingInstitutions}
-                </span>
-              )}
-            </button>
-          ))}
+          {TABS.map((tab) => {
+            const Icon = tab.icon;
+            return (
+              <button key={tab.key} onClick={() => setActiveTab(tab.key)}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
+                  activeTab === tab.key
+                    ? 'bg-red-50 text-red-700'
+                    : 'text-gray-600 hover:bg-gray-100'
+                }`}>
+                <Icon className="h-5 w-5" />
+                {tab.label}
+                {tab.key === 'institutions' && stats?.pendingInstitutions > 0 && (
+                  <span className="ml-auto bg-yellow-400 text-yellow-900 text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                    {stats.pendingInstitutions}
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </nav>
 
         <div className="p-4 border-t border-gray-200">

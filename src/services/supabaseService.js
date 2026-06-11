@@ -401,13 +401,16 @@ export const getInstitutionDonations = async (institutionId) => {
                     full_name,
                     phone_number,
                     avatar_url
+                ),
+                donors:donor_id (
+                    blood_type
                 )
             `)
             .eq('institution_id', institutionId)
             .order('scheduled_date', { ascending: false });
 
         if (error) throw error;
-        console.log('[iDonate:Donations] Fetched', data?.length || 0, 'donations (with profiles)');
+        console.log('[iDonate:Donations] Fetched', data?.length || 0, 'donations (with profiles and donors)');
         return data || [];
     } catch (e) {
         console.warn('[iDonate:Donations] Enriched query failed, trying simple query:', e.message);
@@ -539,5 +542,28 @@ export const updateInstitutionProfile = async (institutionId, updates) => {
 
     if (error) throw new Error(error.message);
     return data;
+};
+
+/** Fetch all donations platform-wide for admin panel */
+export const getAllDonations = async () => {
+    try {
+        const { data, error } = await supabase
+            .from('donations')
+            .select(`
+                *,
+                profiles:donor_id (
+                    full_name
+                ),
+                institutions:institution_id (
+                    institution_name
+                )
+            `)
+            .order('scheduled_date', { ascending: false });
+
+        if (error) throw error;
+        return data || [];
+    } catch (error) {
+        throw new Error(error.message);
+    }
 };
 

@@ -447,7 +447,7 @@ export const getInstitutionDonations = async (institutionId) => {
 };
 
 /** Update a donation status (confirm, complete, cancel, no_show) */
-export const updateDonationStatus = async (donationId, status, unitsDonated) => {
+export const updateDonationStatus = async (donationId, status, unitsDonated, notes) => {
     const isCompleting = status === 'completed';
     const payload = { status };
     
@@ -457,6 +457,7 @@ export const updateDonationStatus = async (donationId, status, unitsDonated) => 
     }
 
     if (unitsDonated !== undefined) payload.units_donated = unitsDonated;
+    if (notes !== undefined) payload.notes = notes;
 
     // First update the flags/status
     const { data: updatedDonation, error } = await supabase

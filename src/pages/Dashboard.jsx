@@ -65,6 +65,7 @@ const Dashboard = () => {
   // Complete donation modal
   const [completingDonation, setCompletingDonation] = useState(null);
   const [completionUnits, setCompletionUnits] = useState(1);
+  const [completionNotes, setCompletionNotes] = useState('');
 
   // Profile edit
   const [profileEditing, setProfileEditing] = useState(false);
@@ -214,9 +215,9 @@ const Dashboard = () => {
     } catch (error) { toast.error('Failed: ' + error.message); }
   };
 
-  const handleDonationAction = async (donationId, status, units) => {
+  const handleDonationAction = async (donationId, status, units, notes) => {
     try {
-      await updateDonationStatus(donationId, status, units);
+      await updateDonationStatus(donationId, status, units, notes);
       toast.success(`Donation ${status}!`);
       await loadDashboardData();
     } catch (error) { toast.error('Failed: ' + error.message); }
@@ -812,11 +813,40 @@ const Dashboard = () => {
                               )}
                               {(d.status === 'scheduled' || d.status === 'confirmed') && (
                                 <>
-                                  <button onClick={() => { setCompletingDonation(d.id); setCompletionUnits(1); }}
+                                  <button onClick={() => { setCompletingDonation(d.id); setCompletionUnits(1); setCompletionNotes(''); }}
                                     className="px-3 py-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-colors">Verify</button>
                                   <button onClick={() => handleDonationAction(d.id, 'no_show')}
                                     className="px-3 py-1.5 text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 rounded-lg transition-colors">No Show</button>
                                 </>
+                              )}
+                              {d.status === 'completed' && (
+                                <div className="flex items-center gap-2 text-emerald-600 justify-end">
+                                  <CheckCircleIcon className="h-5 w-5" />
+                                  <span className="text-xs font-bold bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-full uppercase tracking-wider">
+                                    Verified ({d.units_donated || 1} Unit{(d.units_donated || 1) > 1 ? 's' : ''})
+                                  </span>
+                                  {d.notes && (
+                                    <div className="relative group">
+                                      <span className="cursor-help text-base select-none">
+                                        💬
+                                      </span>
+                                      <div className="absolute right-0 bottom-full mb-2 hidden group-hover:block w-48 bg-slate-900 text-white text-[11px] font-medium p-3 rounded-xl shadow-lg z-30 pointer-events-none text-left">
+                                        <p className="font-bold text-slate-300 border-b border-slate-700 pb-1 mb-1 uppercase tracking-wider text-[9px]">Hospital Notes</p>
+                                        <p className="italic">"{d.notes}"</p>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                              {d.status === 'cancelled' && (
+                                <span className="text-[10px] font-bold bg-slate-100 text-slate-500 px-2.5 py-1 rounded-full uppercase tracking-wider">
+                                  Cancelled
+                                </span>
+                              )}
+                              {d.status === 'no_show' && (
+                                <span className="text-[10px] font-bold bg-slate-100 text-slate-500 px-2.5 py-1 rounded-full uppercase tracking-wider">
+                                  No Show
+                                </span>
                               )}
                             </div>
                           </td>
@@ -838,20 +868,28 @@ const Dashboard = () => {
                   <h3 className="text-xl font-black text-slate-900 mb-2 text-center">Verify Donation</h3>
                   <p className="text-sm text-slate-500 mb-6 text-center">Enter the units collected to complete this process.</p>
                   
-                  <div className="space-y-6">
+                  <div className="space-y-5">
                     <div className="space-y-2 text-center">
                       <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Units Collected</label>
                       <input type="number" min={1} value={completionUnits}
                         onChange={e => setCompletionUnits(parseInt(e.target.value, 10) || 1)}
                         className="w-full text-center text-3xl font-black rounded-2xl border border-emerald-200 px-4 py-4 bg-emerald-50/50 text-emerald-900 focus:border-emerald-500 focus:ring-emerald-500 transition-colors" />
                     </div>
-                    <div className="flex flex-col gap-3">
-                      <button onClick={() => { handleDonationAction(completingDonation, 'completed', completionUnits); setCompletingDonation(null); }}
-                        className="w-full py-4 rounded-xl text-sm font-bold text-white bg-emerald-500 hover:bg-emerald-600 shadow-lg shadow-emerald-500/20 transition-all transform hover:-translate-y-0.5">
-                        Complete Donation
+
+                    <div className="space-y-1.5">
+                      <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block text-left">Feedback & Notes for Donor</label>
+                      <textarea value={completionNotes} onChange={e => setCompletionNotes(e.target.value)}
+                        placeholder="Add a thank-you note or medical instructions..."
+                        className="w-full rounded-2xl border border-slate-200 px-4 py-3 bg-slate-50 text-slate-800 text-xs font-semibold focus:border-emerald-500 focus:ring-emerald-500 transition-colors min-h-[70px] resize-none" />
+                    </div>
+
+                    <div className="flex flex-col gap-2.5">
+                      <button onClick={() => { handleDonationAction(completingDonation, 'completed', completionUnits, completionNotes); setCompletingDonation(null); }}
+                        className="w-full py-3.5 rounded-xl text-sm font-bold text-white bg-emerald-500 hover:bg-emerald-600 shadow-lg shadow-emerald-500/20 transition-all transform hover:-translate-y-0.5">
+                        Complete Verification
                       </button>
                       <button onClick={() => setCompletingDonation(null)}
-                        className="w-full py-4 rounded-xl text-sm font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-all">
+                        className="w-full py-3 rounded-xl text-sm font-bold text-slate-500 hover:text-slate-800 transition-colors">
                         Cancel
                       </button>
                     </div>

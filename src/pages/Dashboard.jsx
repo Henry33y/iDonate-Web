@@ -62,9 +62,6 @@ const Dashboard = () => {
   const [editingRequest, setEditingRequest] = useState(null);
   const [editForm, setEditForm] = useState({});
 
-  // Delete confirmation modal
-  const [deletingRequestId, setDeletingRequestId] = useState(null);
-
   // Complete donation modal
   const [completingDonation, setCompletingDonation] = useState(null);
   const [completionUnits, setCompletionUnits] = useState(1);
@@ -103,7 +100,31 @@ const Dashboard = () => {
     });
   }, [resetNotificationBadge]);
 
+  const loadDashboardData = useCallback(async () => {
+    setLoading(true);
+    let requests = [];
+    let donationsData = [];
+
+    try { const profile = await getInstitutionProfile(currentUser.id); setInstitutionProfile(profile); if (profile) setProfileForm({ institution_name: profile.name || '', email: profile.email || '', phone: profile.phone || '', website: profile.website || '', address: profile.address || '' }); }
+    catch (e) { console.error('Profile fetch failed:', e); }
+
+    try { requests = await getInstitutionRequests(currentUser.id); setBloodRequests(requests); }
+    catch (e) { console.error('Requests fetch failed:', e); }
+
+    try { donationsData = await getInstitutionDonations(currentUser.id); setDonations(donationsData); }
+    catch (e) { console.error('Donations fetch failed:', e); }
+
+    try { const statsData = await getInstitutionStats(currentUser.id, requests, donationsData); setStats(statsData); }
+    catch (e) { console.error('Stats compute failed:', e); }
+
+    try { const activityData = await getRecentActivity(currentUser.id, 20); setActivity(activityData); recalcNewActivity(activityData); }
+    catch (e) { console.error('Activity fetch failed:', e); }
+
+    setLoading(false);
+  }, [currentUser?.id, recalcNewActivity]);
+
   const loadDashboardDataRef = useRef(null);
+  loadDashboardDataRef.current = loadDashboardData;
 
   useEffect(() => {
     if (currentUser?.id) {
@@ -135,31 +156,7 @@ const Dashboard = () => {
         supabase.removeChannel(donationSubscription);
       };
     }
-  }, [currentUser?.id]);
-
-  const loadDashboardData = async () => {
-    setLoading(true);
-    let requests = [];
-    let donationsData = [];
-
-    try { const profile = await getInstitutionProfile(currentUser.id); setInstitutionProfile(profile); if (profile) setProfileForm({ institution_name: profile.name || '', email: profile.email || '', phone: profile.phone || '', website: profile.website || '', address: profile.address || '' }); }
-    catch (e) { console.error('Profile fetch failed:', e); }
-
-    try { requests = await getInstitutionRequests(currentUser.id); setBloodRequests(requests); }
-    catch (e) { console.error('Requests fetch failed:', e); }
-
-    try { donationsData = await getInstitutionDonations(currentUser.id); setDonations(donationsData); }
-    catch (e) { console.error('Donations fetch failed:', e); }
-
-    try { const statsData = await getInstitutionStats(currentUser.id, requests, donationsData); setStats(statsData); }
-    catch (e) { console.error('Stats compute failed:', e); }
-
-    try { const activityData = await getRecentActivity(currentUser.id, 20); setActivity(activityData); recalcNewActivity(activityData); }
-    catch (e) { console.error('Activity fetch failed:', e); }
-
-    setLoading(false);
-  };
-  loadDashboardDataRef.current = loadDashboardData;
+  }, [currentUser?.id, loadDashboardData]);
 
   const handleLogout = async () => {
     try { await logout(); navigate('/'); } catch { toast.error('Failed to log out'); }
@@ -198,14 +195,13 @@ const Dashboard = () => {
     } catch (error) { toast.error('Failed: ' + error.message); }
   };
 
-  const confirmDelete = async () => {
-    if (!deletingRequestId) return;
+  const handleDeleteRequest = async (requestId) => {
+    if (!window.confirm('Are you sure you want to delete this request?')) return;
     try {
-      await deleteBloodRequest(deletingRequestId);
+      await deleteBloodRequest(requestId);
       toast.success('Request deleted');
       await loadDashboardData();
     } catch (error) { toast.error('Failed: ' + error.message); }
-    finally { setDeletingRequestId(null); }
   };
 
   const handleEditSave = async () => {
@@ -661,7 +657,7 @@ const Dashboard = () => {
                               className="flex-1 py-2 text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors">Cancel</button>
                           </>
                         )}
-                        <button onClick={() => setDeletingRequestId(req.id)}
+                        <button onClick={() => handleDeleteRequest(req.id)}
                           className="px-4 py-2 text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 rounded-xl transition-colors">Delete</button>
                       </div>
                     </div>

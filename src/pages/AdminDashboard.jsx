@@ -88,7 +88,6 @@ const AdminDashboard = () => {
   const [notifOpen, setNotifOpen] = useState(false);
   const [newPendingCount, setNewPendingCount] = useState(0);
   const [pendingNotifs, setPendingNotifs] = useState([]);
-  const loadAllDataRef = useRef(null);
 
   // ─── Notification helpers ─────────────────────────────────────
   const recalcNewPending = useCallback((instList) => {
@@ -108,12 +107,7 @@ const AdminDashboard = () => {
     setNotifOpen(!notifOpen);
   };
 
-  // ─── Data Loading ───────────────────────────────────────────────
-  useEffect(() => {
-    loadAllData();
-  }, []);
-
-  const loadAllData = async () => {
+  const loadAllData = useCallback(async () => {
     setLoading(true);
     try {
       const results = await Promise.allSettled([
@@ -137,15 +131,16 @@ const AdminDashboard = () => {
       toast.error('Failed to load admin data');
     } finally {
       setLoading(false);
-      // Update notification badge after load
-      if (institutions.length > 0 || !loading) {
-        // Will be called again after state updates via the effect below
-      }
     }
-  };
+  }, []);
 
-  // Keep loadAllDataRef current for realtime callback
+  const loadAllDataRef = useRef(null);
   loadAllDataRef.current = loadAllData;
+
+  // ─── Data Loading ───────────────────────────────────────────────
+  useEffect(() => {
+    loadAllData();
+  }, [loadAllData]);
 
   // Recalc notifications whenever institutions data changes
   useEffect(() => {

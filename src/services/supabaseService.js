@@ -387,7 +387,6 @@ export const getInstitutionStats = async (institutionId, prefetchedRequests, pre
 
 // ─── Donation Functions ─────────────────────────────────────────────
 
-/** Fetch all donations for an institution (with donor profiles) */
 export const getInstitutionDonations = async (institutionId) => {
     console.log('[iDonate:Donations] Fetching donations for', institutionId);
 
@@ -400,10 +399,10 @@ export const getInstitutionDonations = async (institutionId) => {
                 profiles:donor_id (
                     full_name,
                     phone_number,
-                    avatar_url
-                ),
-                donors:donor_id (
-                    blood_type
+                    avatar_url,
+                    donors!donors_id_fkey (
+                        blood_type
+                    )
                 )
             `)
             .eq('institution_id', institutionId)
@@ -411,7 +410,27 @@ export const getInstitutionDonations = async (institutionId) => {
 
         if (error) throw error;
         console.log('[iDonate:Donations] Fetched', data?.length || 0, 'donations (with profiles and donors)');
-        return data || [];
+
+        // Map data to conform to the component structure (d.donors.blood_type)
+        const mapped = (data || []).map(d => {
+            let bloodType = '?';
+            const donorObj = d.profiles?.donors;
+            if (donorObj) {
+                if (Array.isArray(donorObj) && donorObj.length > 0) {
+                    bloodType = donorObj[0].blood_type || '?';
+                } else if (typeof donorObj === 'object') {
+                    bloodType = donorObj.blood_type || '?';
+                }
+            }
+            return {
+                ...d,
+                donors: {
+                    blood_type: bloodType
+                }
+            };
+        });
+
+        return mapped;
     } catch (e) {
         console.warn('[iDonate:Donations] Enriched query failed, trying simple query:', e.message);
         // Fallback: simple query without joins

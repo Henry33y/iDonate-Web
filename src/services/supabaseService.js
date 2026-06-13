@@ -587,3 +587,127 @@ export const getAllDonations = async () => {
     }
 };
 
+/** Suspend or unsuspend a user profile */
+export const toggleUserSuspension = async (userId, suspendState) => {
+    try {
+        const { data, error } = await supabase
+            .from('profiles')
+            .update({ suspended: suspendState })
+            .eq('id', userId)
+            .select()
+            .single();
+
+        if (error) throw error;
+        return data;
+    } catch (error) {
+        throw new Error(error.message);
+    }
+};
+
+/** Fetch platform audit logs for admin panel */
+export const getAuditLogs = async () => {
+    try {
+        const { data, error } = await supabase
+            .from('audit_logs')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        return data || [];
+    } catch (error) {
+        throw new Error(error.message);
+    }
+};
+
+/** Fetch configured operating slots for an institution */
+export const getInstitutionSlots = async (institutionId) => {
+    try {
+        const { data, error } = await supabase
+            .from('institution_slots')
+            .select('*')
+            .eq('institution_id', institutionId)
+            .order('day_of_week', { ascending: true })
+            .order('start_time', { ascending: true });
+
+        if (error) throw error;
+        return data || [];
+    } catch (error) {
+        throw new Error(error.message);
+    }
+};
+
+/** Add a new operating slot for an institution */
+export const addInstitutionSlot = async (institutionId, dayOfWeek, startTime, endTime, maxCapacity) => {
+    try {
+        const { data, error } = await supabase
+            .from('institution_slots')
+            .insert({
+                institution_id: institutionId,
+                day_of_week: dayOfWeek,
+                start_time: startTime,
+                end_time: endTime,
+                max_capacity: maxCapacity
+            })
+            .select()
+            .single();
+
+        if (error) throw error;
+        return data;
+    } catch (error) {
+        throw new Error(error.message);
+    }
+};
+
+/** Delete an operating slot */
+export const deleteInstitutionSlot = async (slotId) => {
+    try {
+        const { data, error } = await supabase
+            .from('institution_slots')
+            .delete()
+            .eq('id', slotId)
+            .select();
+
+        if (error) throw error;
+        return data;
+    } catch (error) {
+        throw new Error(error.message);
+    }
+};
+
+/** Fetch blood bag inventory for a hospital */
+export const getBloodInventory = async (institutionId) => {
+    try {
+        const { data, error } = await supabase
+            .from('blood_inventory')
+            .select('*')
+            .eq('institution_id', institutionId);
+
+        if (error) throw error;
+        return data || [];
+    } catch (error) {
+        throw new Error(error.message);
+    }
+};
+
+/** Upsert blood inventory unit count */
+export const updateBloodInventory = async (institutionId, bloodType, unitsCount) => {
+    try {
+        const { data, error } = await supabase
+            .from('blood_inventory')
+            .upsert({
+                institution_id: institutionId,
+                blood_type: bloodType,
+                units_count: unitsCount
+            }, {
+                onConflict: 'institution_id,blood_type'
+            })
+            .select()
+            .single();
+
+        if (error) throw error;
+        return data;
+    } catch (error) {
+        throw new Error(error.message);
+    }
+};
+

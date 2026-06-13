@@ -29,6 +29,11 @@ import {
   updateDonationStatus,
   getRecentActivity,
   updateInstitutionProfile,
+  getInstitutionSlots,
+  addInstitutionSlot,
+  deleteInstitutionSlot,
+  getBloodInventory,
+  updateBloodInventory,
 } from '../services/supabaseService';
 
 const BLOOD_TYPES = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
@@ -46,6 +51,28 @@ const Dashboard = () => {
   const [institutionProfile, setInstitutionProfile] = useState(null);
   const [activity, setActivity] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  // Slots & Inventory states
+  const [institutionSlots, setInstitutionSlots] = useState([]);
+  const [bloodInventory, setBloodInventory] = useState([]);
+  const [slotsLoading, setSlotsLoading] = useState(false);
+  const [inventoryLoading, setInventoryLoading] = useState(false);
+
+  // Add slot form state
+  const [slotForm, setSlotForm] = useState({
+    day_of_week: 1, // default Monday
+    start_time: '09:00',
+    end_time: '10:00',
+    max_capacity: 5
+  });
+  const [addingSlot, setAddingSlot] = useState(false);
+
+  // Manual inventory adjustment form state
+  const [inventoryForm, setInventoryForm] = useState({
+    blood_type: 'A+',
+    units_count: 0
+  });
+  const [updatingInventory, setUpdatingInventory] = useState(false);
 
   // Create form
   const [formData, setFormData] = useState({
@@ -120,6 +147,16 @@ const Dashboard = () => {
 
     try { const activityData = await getRecentActivity(currentUser.id, 20); setActivity(activityData); recalcNewActivity(activityData); }
     catch (e) { console.error('Activity fetch failed:', e); }
+
+    try {
+      const slotsData = await getInstitutionSlots(currentUser.id);
+      setInstitutionSlots(slotsData || []);
+    } catch (e) { console.error('Slots fetch failed:', e); }
+
+    try {
+      const inventoryData = await getBloodInventory(currentUser.id);
+      setBloodInventory(inventoryData || []);
+    } catch (e) { console.error('Inventory fetch failed:', e); }
 
     setLoading(false);
   }, [currentUser?.id, recalcNewActivity]);
@@ -234,6 +271,76 @@ const Dashboard = () => {
     finally { setProfileSaving(false); }
   };
 
+  const handleLoadSlots = useCallback(async () => {
+    setSlotsLoading(true);
+    try {
+      const data = await getInstitutionSlots(currentUser.id);
+      setInstitutionSlots(data || []);
+    } catch (err) {
+      toast.error('Failed to load slots: ' + err.message);
+    } finally {
+      setSlotsLoading(false);
+    }
+  }, [currentUser?.id]);
+
+  const handleAddSlot = async (e) => {
+    e.preventDefault();
+    setAddingSlot(true);
+    try {
+      const formattedStart = slotForm.start_time.length === 5 ? `${slotForm.start_time}:00` : slotForm.start_time;
+      const formattedEnd = slotForm.end_time.length === 5 ? `${slotForm.end_time}:00` : slotForm.end_time;
+      
+      await addInstitutionSlot(
+        currentUser.id,
+        parseInt(slotForm.day_of_week, 10),
+        formattedStart,
+        formattedEnd,
+        parseInt(slotForm.max_capacity, 10)
+      );
+      toast.success('Operating slot added successfully!');
+      handleLoadSlots();
+    } catch (err) {
+      toast.error('Failed to add slot: ' + err.message);
+    } finally {
+      setAddingSlot(false);
+    }
+  };
+
+  const handleDeleteSlot = async (slotId) => {
+    if (!window.confirm('Are you sure you want to delete this operating slot?')) return;
+    try {
+      await deleteInstitutionSlot(slotId);
+      toast.success('Slot deleted');
+      handleLoadSlots();
+    } catch (err) {
+      toast.error('Failed to delete slot: ' + err.message);
+    }
+  };
+
+  const handleLoadInventory = useCallback(async () => {
+    setInventoryLoading(true);
+    try {
+      const data = await getBloodInventory(currentUser.id);
+      setBloodInventory(data || []);
+    } catch (err) {
+      toast.error('Failed to load blood inventory: ' + err.message);
+    } finally {
+      setInventoryLoading(false);
+    }
+  }, [currentUser?.id]);
+
+  const handleAdjustInventory = async (bloodType, newCount) => {
+    if (newCount < 0) return;
+    try {
+      await updateBloodInventory(currentUser.id, bloodType, newCount);
+      toast.success(`Updated ${bloodType} stock to ${newCount}`);
+      const inventoryData = await getBloodInventory(currentUser.id);
+      setBloodInventory(inventoryData || []);
+    } catch (err) {
+      toast.error('Failed to update inventory: ' + err.message);
+    }
+  };
+
   const activeRequests = useMemo(() => bloodRequests.filter(r => r.status !== 'deleted'), [bloodRequests]);
 
   const filteredRequests = useMemo(() => {
@@ -343,6 +450,17 @@ const Dashboard = () => {
       urgencyBreakdown 
     };
   }, [donations, activeRequests]);
+
+  const inventoryMap = useMemo(() => {
+    const map = {};
+    BLOOD_TYPES.forEach(bt => { map[bt] = 0; });
+    bloodInventory.forEach(item => {
+      map[item.blood_type] = item.units_count;
+    });
+    return map;
+  }, [bloodInventory]);
+
+  const DAYS_OF_WEEK = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
   const urgencyColor = (l) => ({ critical: 'bg-red-100 text-red-700', high: 'bg-orange-100 text-orange-700', moderate: 'bg-amber-100 text-amber-700', low: 'bg-emerald-100 text-emerald-700' }[l] || 'bg-gray-100 text-gray-700');
   const statusColor = (s) => ({ open: 'bg-blue-100 text-blue-700', matched: 'bg-purple-100 text-purple-700', in_progress: 'bg-amber-100 text-amber-700', completed: 'bg-emerald-100 text-emerald-700', cancelled: 'bg-slate-100 text-slate-600', expired: 'bg-slate-100 text-slate-400' }[s] || 'bg-slate-100 text-slate-700');
@@ -1195,6 +1313,178 @@ const Dashboard = () => {
           </div>
         );
 
+      case 'slots':
+        return (
+          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              {/* Add Slot Form */}
+              <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-sm border border-slate-100 p-6 h-fit">
+                <h3 className="text-lg font-bold text-slate-800 mb-4">Add Operating Slot</h3>
+                <form onSubmit={handleAddSlot} className="space-y-4">
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Day of Week</label>
+                    <select
+                      value={slotForm.day_of_week}
+                      onChange={e => setSlotForm(prev => ({ ...prev, day_of_week: parseInt(e.target.value, 10) }))}
+                      className="w-full rounded-xl border border-slate-200 px-4 py-2.5 bg-slate-50 text-slate-900 font-semibold focus:border-rose-500 focus:ring-rose-500 text-sm"
+                    >
+                      {DAYS_OF_WEEK.map((day, idx) => (
+                        <option key={idx} value={idx}>{day}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Start Time</label>
+                      <input
+                        type="time"
+                        value={slotForm.start_time}
+                        onChange={e => setSlotForm(prev => ({ ...prev, start_time: e.target.value }))}
+                        className="w-full rounded-xl border border-slate-200 px-4 py-2 bg-slate-50 text-slate-900 font-semibold focus:border-rose-500 focus:ring-rose-500 text-sm"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1">End Time</label>
+                      <input
+                        type="time"
+                        value={slotForm.end_time}
+                        onChange={e => setSlotForm(prev => ({ ...prev, end_time: e.target.value }))}
+                        className="w-full rounded-xl border border-slate-200 px-4 py-2 bg-slate-50 text-slate-900 font-semibold focus:border-rose-500 focus:ring-rose-500 text-sm"
+                        required
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Max Capacity (Booking Cap)</label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={slotForm.max_capacity}
+                      onChange={e => setSlotForm(prev => ({ ...prev, max_capacity: parseInt(e.target.value, 10) || 1 }))}
+                      className="w-full rounded-xl border border-slate-200 px-4 py-2 bg-slate-50 text-slate-900 font-semibold focus:border-rose-500 focus:ring-rose-500 text-sm"
+                      required
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={addingSlot}
+                    className="w-full py-3 bg-rose-500 hover:bg-rose-600 text-white font-bold rounded-xl shadow-md shadow-rose-500/10 text-sm transition-all"
+                  >
+                    {addingSlot ? 'Adding Slot...' : 'Add Operating Slot'}
+                  </button>
+                </form>
+              </div>
+
+              {/* Configured Slots List */}
+              <div className="lg:col-span-2 space-y-6">
+                <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-sm border border-slate-100 p-6">
+                  <h3 className="text-lg font-bold text-slate-800 mb-6">Configured Operating Slots</h3>
+                  
+                  {slotsLoading ? (
+                    <div className="py-12 flex justify-center">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-rose-500"></div>
+                    </div>
+                  ) : institutionSlots.length === 0 ? (
+                    <div className="py-12 text-center text-slate-400 text-sm">
+                      No slots configured yet. Configure operating hour slots to receive appointments from donors.
+                    </div>
+                  ) : (
+                    <div className="space-y-6">
+                      {DAYS_OF_WEEK.map((dayName, dayIdx) => {
+                        const daySlots = institutionSlots.filter(s => s.day_of_week === dayIdx);
+                        return (
+                          <div key={dayIdx} className="border-b border-slate-100 pb-4 last:border-0 last:pb-0">
+                            <h4 className="text-sm font-black text-slate-700 uppercase tracking-wider mb-3">{dayName}</h4>
+                            {daySlots.length === 0 ? (
+                              <p className="text-xs text-slate-400 font-medium italic pl-1">Closed / No slots configured</p>
+                            ) : (
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                {daySlots.map(slot => {
+                                  const start = slot.start_time ? slot.start_time.substring(0, 5) : '';
+                                  const end = slot.end_time ? slot.end_time.substring(0, 5) : '';
+                                  return (
+                                    <div key={slot.id} className="flex items-center justify-between p-3.5 bg-slate-50 border border-slate-100 rounded-2xl group hover:bg-slate-100 transition-colors">
+                                      <div className="flex items-center gap-3">
+                                        <ClockIcon className="h-5 w-5 text-slate-400" />
+                                        <div>
+                                          <p className="text-sm font-bold text-slate-800">{start} - {end}</p>
+                                          <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider mt-0.5">Capacity: {slot.max_capacity} bookings</p>
+                                        </div>
+                                      </div>
+                                      <button
+                                        onClick={() => handleDeleteSlot(slot.id)}
+                                        className="text-xs font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 p-2 rounded-xl transition-colors"
+                                      >
+                                        Delete
+                                      </button>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+
+      case 'inventory':
+        return (
+          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-sm border border-slate-100 p-6">
+              <h3 className="text-lg font-bold text-slate-800 mb-2">Blood Bag Inventory</h3>
+              <p className="text-xs text-slate-400 font-medium mb-6">Monitor and update blood bag stock. Counts auto-increment when donation appointments are verified.</p>
+              
+              {inventoryLoading ? (
+                <div className="py-12 flex justify-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-rose-500"></div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-6">
+                  {BLOOD_TYPES.map(bt => {
+                    const count = inventoryMap[bt] || 0;
+                    return (
+                      <div key={bt} className="bg-slate-50 border border-slate-100 rounded-3xl p-5 flex flex-col items-center justify-between text-center relative group hover:shadow-md hover:bg-slate-50/50 transition-all">
+                        <div className="w-16 h-16 rounded-full bg-gradient-to-br from-rose-100 to-red-200 flex items-center justify-center text-red-700 font-black text-2xl shadow-inner mb-4">
+                          {bt}
+                        </div>
+                        
+                        <div className="space-y-1 mb-4">
+                          <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Current Stock</p>
+                          <p className="text-3xl font-black text-slate-800">{count} Unit{count !== 1 ? 's' : ''}</p>
+                        </div>
+                        
+                        {/* Plus/Minus Adjustment Controls */}
+                        <div className="flex items-center gap-3 w-full justify-center">
+                          <button
+                            onClick={() => handleAdjustInventory(bt, Math.max(0, count - 1))}
+                            className="w-10 h-10 rounded-xl bg-white border border-slate-200 text-slate-600 font-bold hover:bg-slate-100 flex items-center justify-center shadow-sm text-lg transition-colors"
+                            disabled={count <= 0}
+                          >
+                            -
+                          </button>
+                          <button
+                            onClick={() => handleAdjustInventory(bt, count + 1)}
+                            className="w-10 h-10 rounded-xl bg-white border border-slate-200 text-slate-600 font-bold hover:bg-slate-100 flex items-center justify-center shadow-sm text-lg transition-colors"
+                          >
+                            +
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        );
+
       default:
         return null;
     }
@@ -1221,6 +1511,8 @@ const Dashboard = () => {
               { key: 'create', icon: PlusIcon, label: 'Create Request' },
               { key: 'requests', icon: ClipboardDocumentListIcon, label: 'Manage Requests' },
               { key: 'donations', icon: CalendarDaysIcon, label: 'Appointments' },
+              { key: 'slots', icon: ClockIcon, label: 'Operating Slots' },
+              { key: 'inventory', icon: BeakerIcon, label: 'Blood Inventory' },
               { key: 'analytics', icon: ChartBarIcon, label: 'Analytics' },
             ].map((tab) => {
               const Icon = tab.icon;
@@ -1267,7 +1559,7 @@ const Dashboard = () => {
           <header className="h-24 bg-white/60 backdrop-blur-md border-b border-slate-100/50 flex items-center justify-between px-8 z-10 sticky top-0">
             <div>
               <h1 className="text-2xl font-black text-slate-900 tracking-tight">
-                {{ home: 'Overview', create: 'Create Request', requests: 'Manage Requests', donations: 'Appointments', analytics: 'Analytics', profile: 'Institution Profile' }[activeTab]}
+                {{ home: 'Overview', create: 'Create Request', requests: 'Manage Requests', donations: 'Appointments', slots: 'Operating Slots', inventory: 'Blood Inventory', analytics: 'Analytics', profile: 'Institution Profile' }[activeTab]}
               </h1>
               <p className="text-sm font-medium text-slate-500 mt-1">{new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
             </div>

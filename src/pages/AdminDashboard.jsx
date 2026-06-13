@@ -6,6 +6,8 @@ import {
   getAllUsers,
   getAllBloodRequests,
   getAllDonations,
+  toggleUserSuspension,
+  getAuditLogs,
 } from '../services/supabaseService';
 import { logoutAdmin, getCurrentAdmin } from '../services/authService';
 import { useNavigate } from 'react-router-dom';
@@ -29,6 +31,7 @@ import {
   ChevronRightIcon,
   BellIcon,
   ChartBarIcon,
+  ShieldCheckIcon,
 } from '@heroicons/react/24/outline';
 import { toast } from 'react-toastify';
 
@@ -38,6 +41,7 @@ const TABS = [
   { key: 'institutions', label: 'Institutions', icon: BuildingOfficeIcon },
   { key: 'users', label: 'Users', icon: UsersIcon },
   { key: 'requests', label: 'Blood Requests', icon: ClipboardDocumentListIcon },
+  { key: 'audit', label: 'Audit Logs', icon: ShieldCheckIcon },
   { key: 'analytics', label: 'Analytics', icon: ChartBarIcon },
   { key: 'settings', label: 'Settings', icon: Cog6ToothIcon },
 ];
@@ -74,6 +78,7 @@ const AdminDashboard = () => {
   const [users, setUsers] = useState([]);
   const [bloodRequests, setBloodRequests] = useState([]);
   const [donations, setDonations] = useState([]);
+  const [auditLogs, setAuditLogs] = useState([]);
 
   // UI state
   const [loading, setLoading] = useState(true);
@@ -116,12 +121,14 @@ const AdminDashboard = () => {
         getAllUsers(),
         getAllBloodRequests(),
         getAllDonations(),
+        getAuditLogs(),
       ]);
       if (results[0].status === 'fulfilled') setStats(results[0].value);
       if (results[1].status === 'fulfilled') setInstitutions(results[1].value);
       if (results[2].status === 'fulfilled') setUsers(results[2].value);
       if (results[3].status === 'fulfilled') setBloodRequests(results[3].value);
       if (results[4].status === 'fulfilled') setDonations(results[4].value);
+      if (results[5].status === 'fulfilled') setAuditLogs(results[5].value);
       // Log any failures
       results.forEach((r, i) => {
         if (r.status === 'rejected') console.error(`[Admin] Query ${i} failed:`, r.reason);
@@ -498,8 +505,8 @@ const AdminDashboard = () => {
             <table className="w-full">
               <thead>
                 <tr className="bg-gray-50">
-                  {['Name', 'Email', 'Role', 'Blood Type', 'Joined'].map(h => (
-                    <th key={h} className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase text-left">{h}</th>
+                  {['Name', 'Email', 'Role', 'Blood Type', 'Joined', 'Actions'].map(h => (
+                    <th key={h} className={`px-6 py-3 text-xs font-semibold text-gray-500 uppercase ${h === 'Actions' ? 'text-right' : 'text-left'}`}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -511,7 +518,14 @@ const AdminDashboard = () => {
                         <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center text-red-700 font-bold text-xs flex-shrink-0">
                           {(user.full_name || '?')[0]?.toUpperCase()}
                         </div>
-                        <span className="text-sm font-medium text-gray-900">{user.full_name || '—'}</span>
+                        <div>
+                          <div className="flex items-center">
+                            <span className="text-sm font-medium text-gray-900">{user.full_name || '—'}</span>
+                            {user.suspended && (
+                              <span className="ml-2 px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-700">Suspended</span>
+                            )}
+                          </div>
+                        </div>
                       </div>
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-500">{user.email || '—'}</td>
@@ -529,6 +543,32 @@ const AdminDashboard = () => {
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-500">
                       {user.created_at ? new Date(user.created_at).toLocaleDateString() : '—'}
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      {user.user_type !== 'admin' && (
+                        <button
+                          onClick={async () => {
+                            const isSuspended = user.suspended;
+                            const actionLabel = isSuspended ? 'unsuspend' : 'suspend';
+                            if (!window.confirm(`Are you sure you want to ${actionLabel} this user?`)) return;
+                            try {
+                              await toggleUserSuspension(user.id, !isSuspended);
+                              toast.success(`User ${isSuspended ? 'unsuspended' : 'suspended'} successfully`);
+                              const updatedUsers = await getAllUsers();
+                              setUsers(updatedUsers);
+                            } catch (err) {
+                              toast.error('Failed: ' + err.message);
+                            }
+                          }}
+                          className={`text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors ${
+                            user.suspended
+                              ? 'text-green-700 bg-green-50 hover:bg-green-100'
+                              : 'text-red-700 bg-red-50 hover:bg-red-100'
+                          }`}
+                        >
+                          {user.suspended ? 'Unsuspend' : 'Suspend'}
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -862,6 +902,77 @@ const AdminDashboard = () => {
     );
   };
 
+  const formatLogDetails = (log) => {
+    const d = log.details || {};
+    if (log.action === 'institution_verification_changed') {
+      return `Verification status of ${d.institution_name || 'Institution'} changed to ${d.new_verified ? 'Verified' : 'Unverified'}`;
+    }
+    if (log.action === 'user_suspended') {
+      return `Suspended user ${d.target_user_name || 'Donor'} (${d.target_user_type || 'user'})`;
+    }
+    if (log.action === 'user_unsuspended') {
+      return `Unsuspended user ${d.target_user_name || 'Donor'} (${d.target_user_type || 'user'})`;
+    }
+    return JSON.stringify(d);
+  };
+
+  const renderAuditLogs = () => (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-xl font-bold text-gray-900">System Audit Logs</h2>
+        <p className="text-sm text-gray-500 font-medium">Chronological security and administration activity logging</p>
+      </div>
+
+      {auditLogs.length === 0 ? (
+        <div className="text-center py-12 bg-white rounded-xl border border-gray-100 text-gray-400 text-sm italic">
+          No audit logs recorded yet
+        </div>
+      ) : (
+        <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="bg-gray-50">
+                  {['Timestamp', 'Actor', 'Action', 'Activity Details'].map(h => (
+                    <th key={h} className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase text-left">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100 font-sans">
+                {auditLogs.map(log => {
+                  const actionColors = {
+                    institution_verification_changed: 'bg-blue-100 text-blue-700 border-blue-200',
+                    user_suspended: 'bg-red-100 text-red-700 border-red-200',
+                    user_unsuspended: 'bg-green-100 text-green-700 border-green-200',
+                  };
+                  return (
+                    <tr key={log.id} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-6 py-4 text-sm text-gray-500 whitespace-nowrap">
+                        {new Date(log.created_at).toLocaleString()}
+                      </td>
+                      <td className="px-6 py-4">
+                        <p className="text-sm font-semibold text-gray-900">{log.actor_name || 'System'}</p>
+                        <p className="text-[10px] text-gray-400 font-medium uppercase tracking-wider">{log.actor_id ? 'Admin' : 'Automation'}</p>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border whitespace-nowrap ${actionColors[log.action] || 'bg-gray-100 text-gray-600 border-gray-200'}`}>
+                          {log.action.replace(/_/g, ' ')}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-600">
+                        {formatLogDetails(log)}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
   // ─── Content Router ─────────────────────────────────────────────
   const renderContent = () => {
     switch (activeTab) {
@@ -869,6 +980,7 @@ const AdminDashboard = () => {
       case 'institutions': return renderInstitutions();
       case 'users': return renderUsers();
       case 'requests': return renderRequests();
+      case 'audit': return renderAuditLogs();
       case 'analytics': return renderAnalytics();
       case 'settings': return renderSettings();
       default: return renderOverview();
@@ -1047,8 +1159,12 @@ const AdminDashboard = () => {
                           <p className="text-xs text-gray-500">{selectedInstitution.documents.license.type}</p>
                         </div>
                       </div>
-                      <iframe src={selectedInstitution.documents.license.url} title="PDF Preview"
-                        width="100%" height="250px" style={{ border: '1px solid #e5e7eb', borderRadius: '8px' }} />
+                      {selectedInstitution.documents.license.url?.match(/\.(jpeg|jpg|gif|png)$/i) || selectedInstitution.documents.license.type?.startsWith('image/') ? (
+                        <img src={selectedInstitution.documents.license.url} alt="License Preview" className="w-full max-h-64 object-contain rounded-lg border border-gray-200" />
+                      ) : (
+                        <iframe src={selectedInstitution.documents.license.url} title="PDF Preview"
+                          width="100%" height="250px" style={{ border: '1px solid #e5e7eb', borderRadius: '8px' }} />
+                      )}
                       <div className="flex gap-3 mt-4">
                         <a href={selectedInstitution.documents.license.url} target="_blank" rel="noopener noreferrer"
                           className="inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg text-gray-700 bg-gray-100 hover:bg-gray-200 transition-colors">

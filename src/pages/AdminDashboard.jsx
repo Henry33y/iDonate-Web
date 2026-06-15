@@ -8,6 +8,7 @@ import {
   getAllDonations,
   toggleUserSuspension,
   getAuditLogs,
+  deleteBloodRequest,
 } from '../services/supabaseService';
 import { logoutAdmin, getCurrentAdmin } from '../services/authService';
 import { useNavigate } from 'react-router-dom';
@@ -32,6 +33,7 @@ import {
   BellIcon,
   ChartBarIcon,
   ShieldCheckIcon,
+  TrashIcon,
 } from '@heroicons/react/24/outline';
 import { toast } from 'react-toastify';
 
@@ -88,6 +90,10 @@ const AdminDashboard = () => {
   const [userRoleFilter, setUserRoleFilter] = useState('all');
   const [requestStatusFilter, setRequestStatusFilter] = useState('all');
   const [requestUrgencyFilter, setRequestUrgencyFilter] = useState('all');
+  const [selectedRequest, setSelectedRequest] = useState(null);
+  const [selectedRequestIds, setSelectedRequestIds] = useState(new Set());
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [selectedUserIds, setSelectedUserIds] = useState(new Set());
 
   // Notification bell state
   const [notifOpen, setNotifOpen] = useState(false);
@@ -168,6 +174,57 @@ const AdminDashboard = () => {
 
     return () => { supabase.removeChannel(channel); };
   }, []);
+
+  // ─── Bulk & Request Actions ───────────────────────────────────────
+  const handleBulkDeleteRequests = async () => {
+    if (selectedRequestIds.size === 0) return;
+    if (!window.confirm(`Are you sure you want to delete ${selectedRequestIds.size} request(s)?`)) return;
+
+    try {
+      const promises = Array.from(selectedRequestIds).map(id => deleteBloodRequest(id));
+      await Promise.all(promises);
+      toast.success(`Successfully deleted ${selectedRequestIds.size} request(s)`);
+      setSelectedRequestIds(new Set());
+      const reqData = await getAllBloodRequests();
+      setBloodRequests(reqData);
+      const statsData = await getPlatformStats();
+      setStats(statsData);
+    } catch (err) {
+      toast.error('Failed to delete some requests: ' + err.message);
+    }
+  };
+
+  const handleDeleteRequest = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this request?')) return;
+    try {
+      await deleteBloodRequest(id);
+      toast.success('Request deleted successfully');
+      setSelectedRequest(null);
+      const reqData = await getAllBloodRequests();
+      setBloodRequests(reqData);
+      const statsData = await getPlatformStats();
+      setStats(statsData);
+    } catch (err) {
+      toast.error('Failed to delete request: ' + err.message);
+    }
+  };
+
+  const handleBulkUserAction = async (suspendState) => {
+    if (selectedUserIds.size === 0) return;
+    const actionLabel = suspendState ? 'suspend' : 'unsuspend';
+    if (!window.confirm(`Are you sure you want to ${actionLabel} ${selectedUserIds.size} user(s)?`)) return;
+
+    try {
+      const promises = Array.from(selectedUserIds).map(id => toggleUserSuspension(id, suspendState));
+      await Promise.all(promises);
+      toast.success(`Successfully ${suspendState ? 'suspended' : 'unsuspended'} ${selectedUserIds.size} user(s)`);
+      setSelectedUserIds(new Set());
+      const updatedUsers = await getAllUsers();
+      setUsers(updatedUsers);
+    } catch (err) {
+      toast.error('Failed to process some users: ' + err.message);
+    }
+  };
 
   // ─── Institution Actions ────────────────────────────────────────
   const handleStatusUpdate = async (institutionId, status) => {
@@ -497,6 +554,20 @@ const AdminDashboard = () => {
               </button>
             ))}
           </div>
+          {selectedUserIds.size > 0 && (
+            <div className="ml-auto flex gap-2">
+              <button onClick={() => handleBulkUserAction(true)}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-red-50 text-red-700 rounded-lg hover:bg-red-100 border border-red-200 transition-colors text-xs font-medium shadow-sm">
+                <NoSymbolIcon className="h-4 w-4" />
+                Suspend ({selectedUserIds.size})
+              </button>
+              <button onClick={() => handleBulkUserAction(false)}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-green-50 text-green-700 rounded-lg hover:bg-green-100 border border-green-200 transition-colors text-xs font-medium shadow-sm">
+                <CheckCircleIcon className="h-4 w-4" />
+                Unsuspend ({selectedUserIds.size})
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Users Table */}
@@ -505,22 +576,58 @@ const AdminDashboard = () => {
             <table className="w-full">
               <thead>
                 <tr className="bg-gray-50">
+                  <th className="px-6 py-3 text-left w-12">
+                    <input 
+                      type="checkbox" 
+                      className="rounded border-gray-300 text-red-600 focus:ring-red-500 cursor-pointer"
+                      checked={filteredUsers.length > 0 && selectedUserIds.size === filteredUsers.slice(0, 100).filter(u => u.user_type !== 'admin').length}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedUserIds(new Set(filteredUsers.slice(0, 100).filter(u => u.user_type !== 'admin').map(u => u.id)));
+                        } else {
+                          setSelectedUserIds(new Set());
+                        }
+                      }}
+                    />
+                  </th>
                   {['Name', 'Email', 'Role', 'Blood Type', 'Joined', 'Actions'].map(h => (
                     <th key={h} className={`px-6 py-3 text-xs font-semibold text-gray-500 uppercase ${h === 'Actions' ? 'text-right' : 'text-left'}`}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {filteredUsers.slice(0, 100).map(user => (
-                  <tr key={user.id} className="hover:bg-gray-50 transition-colors">
+                {filteredUsers.slice(0, 100).map(user => {
+                  const inst = institutions.find(i => i.id === user.id);
+                  const displayEmail = user.email || (inst ? inst.email : '—');
+                  const displayName = (inst ? inst.name : user.full_name) || '—';
+
+                  return (
+                  <tr key={user.id} 
+                      className="hover:bg-gray-50 transition-colors cursor-pointer"
+                      onClick={() => setSelectedUser({ ...user, displayEmail, displayName })}>
+                    <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
+                      {user.user_type !== 'admin' && (
+                        <input 
+                          type="checkbox" 
+                          className="rounded border-gray-300 text-red-600 focus:ring-red-500 cursor-pointer"
+                          checked={selectedUserIds.has(user.id)}
+                          onChange={(e) => {
+                            const newSet = new Set(selectedUserIds);
+                            if (e.target.checked) newSet.add(user.id);
+                            else newSet.delete(user.id);
+                            setSelectedUserIds(newSet);
+                          }}
+                        />
+                      )}
+                    </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center text-red-700 font-bold text-xs flex-shrink-0">
-                          {(user.full_name || '?')[0]?.toUpperCase()}
+                          {displayName[0]?.toUpperCase() || '?'}
                         </div>
                         <div>
                           <div className="flex items-center">
-                            <span className="text-sm font-medium text-gray-900">{user.full_name || '—'}</span>
+                            <span className="text-sm font-medium text-gray-900">{displayName}</span>
                             {user.suspended && (
                               <span className="ml-2 px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-700">Suspended</span>
                             )}
@@ -528,7 +635,7 @@ const AdminDashboard = () => {
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-500">{user.email || '—'}</td>
+                    <td className="px-6 py-4 text-sm text-gray-500">{displayEmail}</td>
                     <td className="px-6 py-4">
                       <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
                         user.user_type === 'admin' ? 'bg-purple-100 text-purple-700' :
@@ -547,7 +654,8 @@ const AdminDashboard = () => {
                     <td className="px-6 py-4 text-right">
                       {user.user_type !== 'admin' && (
                         <button
-                          onClick={async () => {
+                          onClick={async (e) => {
+                            e.stopPropagation();
                             const isSuspended = user.suspended;
                             const actionLabel = isSuspended ? 'unsuspend' : 'suspend';
                             if (!window.confirm(`Are you sure you want to ${actionLabel} this user?`)) return;
@@ -571,7 +679,7 @@ const AdminDashboard = () => {
                       )}
                     </td>
                   </tr>
-                ))}
+                )})}
               </tbody>
             </table>
           </div>
@@ -593,7 +701,7 @@ const AdminDashboard = () => {
         <p className="text-sm text-gray-500">{filteredRequests.length} request{filteredRequests.length !== 1 ? 's' : ''}</p>
       </div>
 
-      <div className="flex flex-wrap gap-3">
+      <div className="flex flex-wrap gap-3 items-center">
         <div className="flex gap-2">
           {['all', 'open', 'matched', 'in_progress', 'completed', 'cancelled'].map(s => (
             <button key={s} onClick={() => setRequestStatusFilter(s)}
@@ -610,6 +718,15 @@ const AdminDashboard = () => {
             </button>
           ))}
         </div>
+        {selectedRequestIds.size > 0 && (
+          <div className="ml-auto">
+            <button onClick={handleBulkDeleteRequests}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-xs font-medium shadow-sm">
+              <TrashIcon className="h-4 w-4" />
+              Delete Selected ({selectedRequestIds.size})
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Requests Table */}
@@ -621,19 +738,47 @@ const AdminDashboard = () => {
             <table className="w-full">
               <thead>
                 <tr className="bg-gray-50">
-                  {['Blood Type', 'Units', 'Patient', 'Description', 'Urgency', 'Status', 'Date'].map(h => (
+                  <th className="px-6 py-3 text-left w-12">
+                    <input 
+                      type="checkbox" 
+                      className="rounded border-gray-300 text-red-600 focus:ring-red-500 cursor-pointer"
+                      checked={filteredRequests.length > 0 && selectedRequestIds.size === filteredRequests.slice(0, 100).length}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedRequestIds(new Set(filteredRequests.slice(0, 100).map(r => r.id)));
+                        } else {
+                          setSelectedRequestIds(new Set());
+                        }
+                      }}
+                    />
+                  </th>
+                  {['Blood Type', 'Units', 'Description', 'Urgency', 'Status', 'Date'].map(h => (
                     <th key={h} className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase text-left">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {filteredRequests.slice(0, 100).map(req => (
-                  <tr key={req.id} className="hover:bg-gray-50 transition-colors">
+                  <tr key={req.id} 
+                      className="hover:bg-gray-50 transition-colors cursor-pointer"
+                      onClick={() => setSelectedRequest(req)}>
+                    <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
+                      <input 
+                        type="checkbox" 
+                        className="rounded border-gray-300 text-red-600 focus:ring-red-500 cursor-pointer"
+                        checked={selectedRequestIds.has(req.id)}
+                        onChange={(e) => {
+                          const newSet = new Set(selectedRequestIds);
+                          if (e.target.checked) newSet.add(req.id);
+                          else newSet.delete(req.id);
+                          setSelectedRequestIds(newSet);
+                        }}
+                      />
+                    </td>
                     <td className="px-6 py-4">
                       <span className="inline-flex items-center justify-center w-9 h-9 rounded-full bg-red-100 text-red-700 font-bold text-sm">{req.blood_type_needed}</span>
                     </td>
                     <td className="px-6 py-4 text-sm font-medium text-gray-900">{req.units_needed}</td>
-                    <td className="px-6 py-4 text-sm text-gray-600">{req.patient_name || '—'}</td>
                     <td className="px-6 py-4 text-sm text-gray-500 max-w-[200px]">
                       <span className="line-clamp-1">{req.description || '—'}</span>
                     </td>
@@ -973,6 +1118,20 @@ const AdminDashboard = () => {
     </div>
   );
 
+  const getRequestDetails = (req) => {
+    if (!req) return { hospitalName: 'N/A', locationText: 'N/A', contactInfo: 'N/A' };
+    const reqInst = institutions.find(i => i.id === req.institution_id || i.id === req.requester_id);
+    const reqUser = users.find(u => u.id === req.requester_id);
+    
+    const hospitalName = reqInst ? reqInst.name : (reqUser ? reqUser.full_name : 'N/A');
+    const locationText = reqInst 
+        ? (reqInst.location?.city && reqInst.location?.region ? `${reqInst.location.city}, ${reqInst.location.region}` : reqInst.address) 
+        : 'N/A';
+    const contactInfo = req.contact_phone || (reqInst ? reqInst.phone : (reqUser ? reqUser.phone_number : 'N/A'));
+
+    return { hospitalName, locationText, contactInfo };
+  };
+
   // ─── Content Router ─────────────────────────────────────────────
   const renderContent = () => {
     switch (activeTab) {
@@ -1099,6 +1258,71 @@ const AdminDashboard = () => {
         </div>
       </main>
 
+      {/* Blood Request Detail Modal */}
+      {selectedRequest && (
+        <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+            <div className="p-6">
+              {/* Modal Header */}
+              <div className="flex justify-between items-start mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center text-red-700 font-bold text-lg">
+                    {selectedRequest.blood_type_needed}
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold text-gray-900">Blood Request Details</h2>
+                    <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${statusColor(selectedRequest.status)}`}>
+                      {selectedRequest.status}
+                    </span>
+                  </div>
+                </div>
+                <button onClick={() => setSelectedRequest(null)} className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100">
+                  <XMarkIcon className="h-6 w-6" />
+                </button>
+              </div>
+
+              {/* Modal Body */}
+              <div className="space-y-6">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Request Information</h3>
+                  <dl className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {[
+                      { label: 'Units Needed', value: selectedRequest.units_needed },
+                      { label: 'Urgency', value: <span className={`px-2 py-0.5 rounded text-xs font-medium ${urgencyColor(selectedRequest.urgency_level)}`}>{selectedRequest.urgency_level}</span> },
+                      { label: 'Date Needed', value: selectedRequest.date_needed ? new Date(selectedRequest.date_needed).toLocaleDateString() : 'N/A' },
+                      { label: 'Hospital/Clinic', value: getRequestDetails(selectedRequest).hospitalName || 'N/A' },
+                      { label: 'Location', value: getRequestDetails(selectedRequest).locationText || 'N/A' },
+                      { label: 'Contact', value: getRequestDetails(selectedRequest).contactInfo || 'N/A' },
+                      { label: 'Created At', value: selectedRequest.created_at ? new Date(selectedRequest.created_at).toLocaleDateString() : 'N/A' },
+                    ].map(({ label, value }) => (
+                      <div key={label}>
+                        <dt className="text-xs font-medium text-gray-400 uppercase">{label}</dt>
+                        <dd className="mt-1 text-sm text-gray-900">{value}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                </div>
+                
+                {selectedRequest.description && (
+                  <div>
+                    <dt className="text-xs font-medium text-gray-400 uppercase mb-1">Description / Notes</dt>
+                    <dd className="text-sm text-gray-900 bg-gray-50 p-3 rounded-lg border border-gray-100 whitespace-pre-wrap">{selectedRequest.description}</dd>
+                  </div>
+                )}
+              </div>
+
+              {/* Modal Actions */}
+              <div className="mt-8 pt-6 border-t border-gray-100 flex justify-end gap-3">
+                <button onClick={() => handleDeleteRequest(selectedRequest.id)}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-medium rounded-lg text-white bg-red-600 hover:bg-red-700 transition-colors">
+                  <TrashIcon className="h-4 w-4" /> Delete Request
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Institution Detail Modal */}
       {selectedInstitution && (
         <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
@@ -1215,6 +1439,93 @@ const AdminDashboard = () => {
                   <button onClick={() => handleStatusUpdate(selectedInstitution.id, 'approved')}
                     className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-medium rounded-lg text-white bg-green-600 hover:bg-green-700 transition-colors">
                     <CheckCircleIcon className="h-4 w-4" /> Re-approve
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* User Detail Modal */}
+      {selectedUser && (
+        <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl max-w-2xl w-full shadow-2xl">
+            <div className="p-6">
+              {/* Modal Header */}
+              <div className="flex justify-between items-start mb-6 border-b border-gray-100 pb-4">
+                <div className="flex items-center gap-4">
+                  <div className="w-14 h-14 rounded-full bg-red-100 flex items-center justify-center text-red-700 font-bold text-xl flex-shrink-0">
+                    {(selectedUser.displayName || selectedUser.full_name || '?')[0]?.toUpperCase()}
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold text-gray-900">{selectedUser.displayName || selectedUser.full_name || 'N/A'}</h2>
+                    <div className="flex gap-2 mt-1">
+                      <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
+                        selectedUser.user_type === 'admin' ? 'bg-purple-100 text-purple-700' :
+                        selectedUser.user_type === 'institution' ? 'bg-blue-100 text-blue-700' :
+                        'bg-gray-100 text-gray-600'
+                      }`}>
+                        {selectedUser.user_type || 'unknown'}
+                      </span>
+                      {selectedUser.suspended && (
+                        <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-red-100 text-red-700">Suspended</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <button onClick={() => setSelectedUser(null)} className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100">
+                  <XMarkIcon className="h-6 w-6" />
+                </button>
+              </div>
+
+              {/* Modal Body */}
+              <div className="space-y-6">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">User Information</h3>
+                  <dl className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {[
+                      { label: 'Email', value: selectedUser.displayEmail || selectedUser.email },
+                      { label: 'Phone Number', value: selectedUser.phone_number || 'N/A' },
+                      { label: 'Blood Type', value: selectedUser.donors?.[0]?.blood_type || selectedUser.donors?.blood_type || 'N/A' },
+                      { label: 'Joined At', value: selectedUser.created_at ? new Date(selectedUser.created_at).toLocaleDateString() : 'N/A' },
+                    ].map(({ label, value }) => (
+                      <div key={label}>
+                        <dt className="text-xs font-medium text-gray-400 uppercase">{label}</dt>
+                        <dd className="mt-1 text-sm text-gray-900">{value || '—'}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                </div>
+              </div>
+
+              {/* Modal Actions */}
+              <div className="mt-8 pt-6 border-t border-gray-100 flex justify-end gap-3">
+                {selectedUser.user_type !== 'admin' && (
+                  <button onClick={async () => {
+                    const isSuspended = selectedUser.suspended;
+                    const actionLabel = isSuspended ? 'unsuspend' : 'suspend';
+                    if (!window.confirm(`Are you sure you want to ${actionLabel} this user?`)) return;
+                    try {
+                      await toggleUserSuspension(selectedUser.id, !isSuspended);
+                      toast.success(`User ${isSuspended ? 'unsuspended' : 'suspended'} successfully`);
+                      setSelectedUser({ ...selectedUser, suspended: !isSuspended });
+                      const updatedUsers = await getAllUsers();
+                      setUsers(updatedUsers);
+                    } catch (err) {
+                      toast.error('Failed: ' + err.message);
+                    }
+                  }}
+                    className={`inline-flex items-center gap-2 px-5 py-2.5 text-sm font-medium rounded-lg transition-colors ${
+                      selectedUser.suspended
+                        ? 'text-green-700 bg-green-50 hover:bg-green-100 border border-green-200'
+                        : 'text-red-700 bg-red-50 hover:bg-red-100 border border-red-200'
+                    }`}>
+                    {selectedUser.suspended ? (
+                      <><CheckCircleIcon className="h-4 w-4" /> Unsuspend User</>
+                    ) : (
+                      <><NoSymbolIcon className="h-4 w-4" /> Suspend User</>
+                    )}
                   </button>
                 )}
               </div>

@@ -34,6 +34,7 @@ import {
   deleteInstitutionSlot,
   getBloodInventory,
   updateBloodInventory,
+  getUserNotifications,
 } from '../services/supabaseService';
 
 const BLOOD_TYPES = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
@@ -101,18 +102,41 @@ const Dashboard = () => {
 
   // Notifications panel
   const [showNotifications, setShowNotifications] = useState(false);
+  const [broadcastNotifications, setBroadcastNotifications] = useState([]);
   const lastSeenRef = useRef(localStorage.getItem('institution_notification_last_seen'));
   const [newActivityCount, setNewActivityCount] = useState(0);
 
-  const recalcNewActivity = useCallback((activityList) => {
+  const recalcNewActivity = useCallback((activityList, broadcastList) => {
     const since = lastSeenRef.current;
+    const all = [...activityList, ...broadcastList];
     if (!since) {
-      setNewActivityCount(activityList.length);
+      setNewActivityCount(all.length);
     } else {
-      const count = activityList.filter(a => new Date(a.created_at) > new Date(since)).length;
+      const count = all.filter(item => new Date(item.created_at) > new Date(since)).length;
       setNewActivityCount(count);
     }
   }, []);
+
+  const combinedNotifications = useMemo(() => {
+    const act = activity.map(a => ({
+      id: `act-${a.id}`,
+      created_at: a.created_at,
+      title: a.profiles?.full_name || 'A donor',
+      message: `${a.status === 'scheduled' ? 'booked an appointment' : a.status === 'confirmed' ? 'confirmed their appointment' : a.status === 'completed' ? 'completed a donation' : a.status === 'cancelled' ? 'cancelled their appointment' : 'updated their appointment'}`,
+      isBroadcast: false,
+    }));
+
+    const bcast = broadcastNotifications.map(n => ({
+      id: `bcast-${n.id}`,
+      created_at: n.created_at,
+      title: n.title,
+      message: n.message,
+      isBroadcast: true,
+      type: n.type
+    }));
+
+    return [...act, ...bcast].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  }, [activity, broadcastNotifications]);
 
   const resetNotificationBadge = useCallback(() => {
     const now = new Date().toISOString();
@@ -132,6 +156,8 @@ const Dashboard = () => {
     setLoading(true);
     let requests = [];
     let donationsData = [];
+    let activityData = [];
+    let bcastData = [];
 
     try { const profile = await getInstitutionProfile(currentUser.id); setInstitutionProfile(profile); if (profile) setProfileForm({ institution_name: profile.name || '', email: profile.email || '', phone: profile.phone || '', website: profile.website || '', address: profile.address || '' }); }
     catch (e) { console.error('Profile fetch failed:', e); }
@@ -145,8 +171,13 @@ const Dashboard = () => {
     try { const statsData = await getInstitutionStats(currentUser.id, requests, donationsData); setStats(statsData); }
     catch (e) { console.error('Stats compute failed:', e); }
 
-    try { const activityData = await getRecentActivity(currentUser.id, 20); setActivity(activityData); recalcNewActivity(activityData); }
+    try { activityData = await getRecentActivity(currentUser.id, 20); setActivity(activityData); }
     catch (e) { console.error('Activity fetch failed:', e); }
+
+    try { bcastData = await getUserNotifications(currentUser.id); setBroadcastNotifications(bcastData); }
+    catch (e) { console.error('Broadcast fetch failed:', e); }
+
+    recalcNewActivity(activityData, bcastData);
 
     try {
       const slotsData = await getInstitutionSlots(currentUser.id);
@@ -168,22 +199,24 @@ const Dashboard = () => {
     if (currentUser?.id) {
       loadDashboardData();
 
-      const donationSubscription = supabase
-        .channel('institution-donations')
+      const realtimeSubscription = supabase
+        .channel('institution-dashboard-realtime')
         .on(
           'postgres_changes',
           { event: '*', schema: 'public', table: 'donations', filter: `institution_id=eq.${currentUser.id}` },
           (payload) => {
             if (payload.eventType === 'INSERT') {
-              toast.info('New donor volunteer response! Check your donations tab.');
+              toast.info('New donor volunteer response! Check your appointments.');
             }
-            const eventTime = payload.new?.created_at;
-            if (eventTime && lastSeenRef.current) {
-              if (new Date(eventTime) > new Date(lastSeenRef.current)) {
-                setNewActivityCount(prev => prev + 1);
-              }
-            } else if (payload.eventType === 'INSERT') {
-              setNewActivityCount(prev => prev + 1);
+            loadDashboardDataRef.current?.();
+          }
+        )
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'notifications', filter: `user_id=eq.${currentUser.id}` },
+          (payload) => {
+            if (payload.eventType === 'INSERT') {
+              toast.info(`New broadcast: ${payload.new?.title || 'Notice'}`);
             }
             loadDashboardDataRef.current?.();
           }
@@ -191,7 +224,7 @@ const Dashboard = () => {
         .subscribe();
 
       return () => {
-        supabase.removeChannel(donationSubscription);
+        supabase.removeChannel(realtimeSubscription);
       };
     }
   }, [currentUser?.id, loadDashboardData]);
@@ -1585,22 +1618,32 @@ const Dashboard = () => {
                       {newActivityCount > 0 && <span className="text-[10px] font-bold uppercase tracking-wider text-rose-500">{newActivityCount} New</span>}
                     </div>
                     <div className="max-h-[400px] overflow-y-auto">
-                      {activity.length === 0 ? (
+                      {combinedNotifications.length === 0 ? (
                         <div className="p-8 text-center text-slate-400 text-sm font-medium flex flex-col items-center">
                           <BellIcon className="h-8 w-8 mb-2 opacity-20" />
                           All caught up!
                         </div>
                       ) : (
                         <div className="divide-y divide-slate-50">
-                          {activity.slice(0, 10).map(a => (
-                            <div key={a.id} className="p-4 hover:bg-slate-50/80 transition-colors flex gap-4 items-start">
-                              <div className={`w-2 h-2 mt-1.5 rounded-full ${new Date(a.created_at) > new Date(lastSeenRef.current || 0) ? 'bg-rose-500' : 'bg-slate-200'}`}></div>
-                              <div>
-                                <p className="text-sm text-slate-700 leading-snug">
-                                  <span className="font-bold text-slate-900">{a.profiles?.full_name || 'A donor'}</span>
-                                  {' '}{a.status === 'scheduled' ? 'booked an appointment' : a.status === 'confirmed' ? 'confirmed their appointment' : a.status === 'completed' ? 'completed a donation' : a.status === 'cancelled' ? 'cancelled their appointment' : 'updated their appointment'}
-                                </p>
-                                <p className="text-[11px] font-semibold text-slate-400 mt-1 uppercase tracking-wider">{new Date(a.created_at).toLocaleString()}</p>
+                          {combinedNotifications.slice(0, 15).map(item => (
+                            <div key={item.id} className="p-4 hover:bg-slate-50/80 transition-colors flex gap-4 items-start">
+                              <div className={`w-2 h-2 mt-1.5 rounded-full flex-shrink-0 ${new Date(item.created_at) > new Date(lastSeenRef.current || 0) ? 'bg-rose-500' : 'bg-slate-200'}`}></div>
+                              <div className="min-w-0 flex-1">
+                                {item.isBroadcast ? (
+                                  <div>
+                                    <div className="flex items-center gap-2 mb-1">
+                                      <span className="px-2 py-0.5 rounded-md bg-purple-100 text-purple-700 text-[9px] font-black uppercase tracking-wider">Broadcast</span>
+                                      <span className="font-bold text-slate-900 truncate block text-sm">{item.title}</span>
+                                    </div>
+                                    <p className="text-sm text-slate-600 leading-snug break-words">{item.message}</p>
+                                  </div>
+                                ) : (
+                                  <p className="text-sm text-slate-700 leading-snug">
+                                    <span className="font-bold text-slate-900">{item.title}</span>
+                                    {' '}{item.message}
+                                  </p>
+                                )}
+                                <p className="text-[11px] font-semibold text-slate-400 mt-1 uppercase tracking-wider">{new Date(item.created_at).toLocaleString()}</p>
                               </div>
                             </div>
                           ))}

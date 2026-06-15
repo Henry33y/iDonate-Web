@@ -269,6 +269,24 @@ export const getAllBloodRequests = async () => {
     }
 };
 
+/** Broadcast a notification to users */
+export const broadcastNotification = async (targetAudience, type, title, message, specificUserIds = []) => {
+    try {
+        const { data, error } = await supabase.rpc('send_broadcast_notifications', {
+            target_audience: targetAudience,
+            notification_type: type || 'system_broadcast',
+            notification_title: title,
+            notification_message: message,
+            specific_user_ids: specificUserIds
+        });
+
+        if (error) throw error;
+        return data || 0;
+    } catch (error) {
+        throw new Error(error.message);
+    }
+};
+
 // ─── Blood Request Functions ────────────────────────────────────────
 
 /** Fetch all blood requests for an institution */
@@ -706,6 +724,22 @@ export const updateBloodInventory = async (institutionId, bloodType, unitsCount)
 
         if (error) throw error;
         return data;
+    } catch (error) {
+        throw new Error(error.message);
+    }
+};
+
+/** Fetch notifications for a user */
+export const getUserNotifications = async (userId) => {
+    try {
+        const { data, error } = await supabase
+            .from('notifications')
+            .select('*')
+            .eq('user_id', userId)
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        return data || [];
     } catch (error) {
         throw new Error(error.message);
     }

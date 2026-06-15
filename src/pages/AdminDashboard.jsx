@@ -9,6 +9,7 @@ import {
   toggleUserSuspension,
   getAuditLogs,
   deleteBloodRequest,
+  broadcastNotification,
 } from '../services/supabaseService';
 import { logoutAdmin, getCurrentAdmin } from '../services/authService';
 import { useNavigate } from 'react-router-dom';
@@ -34,6 +35,7 @@ import {
   ChartBarIcon,
   ShieldCheckIcon,
   TrashIcon,
+  MegaphoneIcon,
 } from '@heroicons/react/24/outline';
 import { toast } from 'react-toastify';
 
@@ -42,6 +44,7 @@ const TABS = [
   { key: 'overview', label: 'Overview', icon: HomeIcon },
   { key: 'institutions', label: 'Institutions', icon: BuildingOfficeIcon },
   { key: 'users', label: 'Users', icon: UsersIcon },
+  { key: 'broadcasts', label: 'Broadcasts', icon: MegaphoneIcon },
   { key: 'requests', label: 'Blood Requests', icon: ClipboardDocumentListIcon },
   { key: 'audit', label: 'Audit Logs', icon: ShieldCheckIcon },
   { key: 'analytics', label: 'Analytics', icon: ChartBarIcon },
@@ -94,6 +97,15 @@ const AdminDashboard = () => {
   const [selectedRequestIds, setSelectedRequestIds] = useState(new Set());
   const [selectedUser, setSelectedUser] = useState(null);
   const [selectedUserIds, setSelectedUserIds] = useState(new Set());
+
+  // ─── Broadcast State ──────────────────────────────────────────────
+  const [broadcastTarget, setBroadcastTarget] = useState('all');
+  const [broadcastType, setBroadcastType] = useState('system_broadcast');
+  const [broadcastTitle, setBroadcastTitle] = useState('');
+  const [broadcastMessage, setBroadcastMessage] = useState('');
+  const [broadcastSpecificUsers, setBroadcastSpecificUsers] = useState(new Set());
+  const [isBroadcasting, setIsBroadcasting] = useState(false);
+  const [broadcastUserSearch, setBroadcastUserSearch] = useState('');
 
   // Notification bell state
   const [notifOpen, setNotifOpen] = useState(false);
@@ -1132,12 +1144,166 @@ const AdminDashboard = () => {
     return { hospitalName, locationText, contactInfo };
   };
 
+  const handleBroadcastSubmit = async (e) => {
+    e.preventDefault();
+    if (!broadcastTitle.trim() || !broadcastMessage.trim()) {
+      return toast.error('Title and message are required');
+    }
+    if (broadcastTarget === 'specific' && broadcastSpecificUsers.size === 0) {
+      return toast.error('Please select at least one user');
+    }
+    setIsBroadcasting(true);
+    try {
+      const specificIds = Array.from(broadcastSpecificUsers);
+      const count = await broadcastNotification(broadcastTarget, broadcastType, broadcastTitle, broadcastMessage, specificIds);
+      toast.success(`Successfully sent notification to ${count} users!`);
+      setBroadcastTitle('');
+      setBroadcastMessage('');
+      setBroadcastSpecificUsers(new Set());
+    } catch (err) {
+      toast.error('Failed to send broadcast: ' + err.message);
+    } finally {
+      setIsBroadcasting(false);
+    }
+  };
+
+  const renderBroadcasts = () => {
+    const searchLower = broadcastUserSearch.toLowerCase();
+    const availableUsers = users.filter(u => 
+      u.user_type !== 'admin' && 
+      (u.full_name?.toLowerCase().includes(searchLower) || u.email?.toLowerCase().includes(searchLower))
+    ).slice(0, 50); // limit to 50 for performance
+
+    return (
+      <div className="space-y-6 max-w-4xl">
+        <div>
+          <h2 className="text-xl font-bold text-gray-900 mb-1">Broadcast Notifications</h2>
+          <p className="text-sm text-gray-500">Send updates, alerts, or donation drives to users across the platform.</p>
+        </div>
+
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+          <form onSubmit={handleBroadcastSubmit} className="space-y-6">
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Target Audience</label>
+                <select 
+                  value={broadcastTarget}
+                  onChange={(e) => {
+                    setBroadcastTarget(e.target.value);
+                    setBroadcastSpecificUsers(new Set());
+                  }}
+                  className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+                >
+                  <option value="all">All Users (Donors & Institutions)</option>
+                  <option value="donors">Donors Only</option>
+                  <option value="institutions">Institutions Only</option>
+                  <option value="specific">Specific Users</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Notification Type</label>
+                <select 
+                  value={broadcastType}
+                  onChange={(e) => setBroadcastType(e.target.value)}
+                  className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+                >
+                  <option value="system_broadcast">System Update</option>
+                  <option value="urgent_alert">Urgent Alert</option>
+                  <option value="donation_drive">Donation Drive</option>
+                </select>
+              </div>
+            </div>
+
+            {broadcastTarget === 'specific' && (
+              <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Select Users ({broadcastSpecificUsers.size} selected)</label>
+                <div className="relative mb-3">
+                  <MagnifyingGlassIcon className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input 
+                    type="text" 
+                    placeholder="Search users..." 
+                    value={broadcastUserSearch}
+                    onChange={(e) => setBroadcastUserSearch(e.target.value)}
+                    className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+                  />
+                </div>
+                <div className="max-h-48 overflow-y-auto bg-white border border-gray-200 rounded-lg divide-y divide-gray-100">
+                  {availableUsers.map(u => (
+                    <div key={u.id} className="flex items-center px-4 py-2 hover:bg-gray-50 cursor-pointer"
+                         onClick={() => {
+                           const newSet = new Set(broadcastSpecificUsers);
+                           if (newSet.has(u.id)) newSet.delete(u.id);
+                           else newSet.add(u.id);
+                           setBroadcastSpecificUsers(newSet);
+                         }}>
+                      <input 
+                        type="checkbox" 
+                        checked={broadcastSpecificUsers.has(u.id)}
+                        onChange={() => {}}
+                        className="rounded border-gray-300 text-red-600 focus:ring-red-500"
+                      />
+                      <span className="ml-3 text-sm text-gray-700">{u.full_name || u.email} ({u.user_type})</span>
+                    </div>
+                  ))}
+                  {availableUsers.length === 0 && (
+                    <div className="p-4 text-center text-sm text-gray-500">No users found.</div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Title</label>
+              <input 
+                type="text" 
+                value={broadcastTitle}
+                onChange={(e) => setBroadcastTitle(e.target.value)}
+                placeholder="e.g., Upcoming Nationwide Donation Drive"
+                className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Message</label>
+              <textarea 
+                value={broadcastMessage}
+                onChange={(e) => setBroadcastMessage(e.target.value)}
+                placeholder="Write your message here..."
+                rows={5}
+                className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 resize-none"
+                required
+              />
+            </div>
+
+            <div className="flex justify-end">
+              <button 
+                type="submit" 
+                disabled={isBroadcasting}
+                className="inline-flex items-center gap-2 px-6 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium shadow-sm disabled:opacity-50"
+              >
+                {isBroadcasting ? (
+                  <><div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white"></div> Sending...</>
+                ) : (
+                  <><MegaphoneIcon className="h-5 w-5" /> Send Broadcast</>
+                )}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  };
+
   // ─── Content Router ─────────────────────────────────────────────
   const renderContent = () => {
     switch (activeTab) {
       case 'overview': return renderOverview();
       case 'institutions': return renderInstitutions();
       case 'users': return renderUsers();
+      case 'broadcasts': return renderBroadcasts();
       case 'requests': return renderRequests();
       case 'audit': return renderAuditLogs();
       case 'analytics': return renderAnalytics();

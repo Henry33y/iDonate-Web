@@ -79,7 +79,7 @@ Deno.serve(async (req) => {
     const requestedType = request.blood_type_needed;
     const compatibleDonorTypes = COMPATIBILITY_MAP[requestedType] || [requestedType];
 
-    // Find donors with compatible blood types who have push tokens
+    // Find donors with compatible blood types
     const { data: matchingDonors, error: donorsError } = await supabase
       .from('donors')
       .select('id, blood_type, profiles(push_token, full_name)')
@@ -92,22 +92,13 @@ Deno.serve(async (req) => {
 
     console.log(`Compatible donors for ${requestedType} (${compatibleDonorTypes.join(', ')}):`, matchingDonors?.length || 0);
 
-    // Filter to only donors with push tokens (exclude the requester)
-    const pushTokens: string[] = [];
-    for (const donor of matchingDonors || []) {
+    // Filter to valid recipients (exclude requester, must have push token)
+    const validDonors = (matchingDonors || []).filter(donor => {
       const profile = (donor as any).profiles;
-      if (profile?.push_token) {
-        if (donor.id !== request.requester_id) {
-          pushTokens.push(profile.push_token);
-        } else {
-          console.log('Skipping push for requester (self)');
-        }
-      } else {
-        console.log(`Donor ${donor.id} has no push token`);
-      }
-    }
+      return donor.id !== request.requester_id && profile?.push_token;
+    });
 
-    console.log(`Found ${pushTokens.length} valid recipient tokens`);
+    console.log(`Found ${validDonors.length} valid recipients`);
 
     // Build urgency label
     const urgencyLabel = request.urgency_level === 'critical' ? '🚨 CRITICAL'
@@ -119,7 +110,7 @@ Deno.serve(async (req) => {
     const notificationBody = `${requesterName} needs ${request.units_needed} unit${request.units_needed > 1 ? 's' : ''} of ${request.blood_type_needed} blood. Tap to respond.`;
 
     // Persist notifications in the database for history/badges
-    const notificationRecords = matchingDonors?.filter((d: any) => d.id !== request.requester_id).map((donor: any) => ({
+    const notificationRecords = validDonors.map(donor => ({
       user_id: donor.id,
       type: 'urgent_request',
       title: notificationTitle,
@@ -134,7 +125,8 @@ Deno.serve(async (req) => {
 
     console.log('Notification records to insert:', JSON.stringify(notificationRecords));
 
-    if (notificationRecords && notificationRecords.length > 0) {
+    let insertedNotifications: any[] = [];
+    if (notificationRecords.length > 0) {
       console.log(`Inserting ${notificationRecords.length} notification records into database...`);
       const { data: insertData, error: insertError } = await supabase
         .from('notifications')
@@ -144,26 +136,38 @@ Deno.serve(async (req) => {
       if (insertError) {
         console.error('Error inserting notification records:', insertError);
       } else {
-        console.log('Successfully persisted notifications to database:', insertData?.length, 'rows');
+        insertedNotifications = insertData || [];
+        console.log('Successfully persisted notifications to database:', insertedNotifications.length, 'rows');
       }
     } else {
       console.log('No notification records to insert (no matching donors or only self).');
     }
 
+    // Create a map of user_id to notification_id for quick lookup
+    const userToNotificationId = new Map<string, string>();
+    insertedNotifications.forEach(n => {
+      userToNotificationId.set(n.user_id, n.id);
+    });
+
     // Build notification messages (Expo accepts batches of up to 100)
-    const messages = pushTokens.map(token => ({
-      to: token,
-      sound: 'default',
-      title: notificationTitle,
-      body: notificationBody,
-      data: {
-        requestId: request.id,
-        bloodType: request.blood_type_needed,
-        urgency: request.urgency_level,
-      },
-      priority: request.urgency_level === 'critical' ? 'high' : 'default',
-      channelId: 'blood-requests',
-    }));
+    const messages = validDonors.map(donor => {
+      const profile = (donor as any).profiles;
+      const notificationId = userToNotificationId.get(donor.id);
+      return {
+        to: profile.push_token,
+        sound: 'default',
+        title: notificationTitle,
+        body: notificationBody,
+        data: {
+          notificationId: notificationId,
+          requestId: request.id,
+          bloodType: request.blood_type_needed,
+          urgency: request.urgency_level,
+        },
+        priority: request.urgency_level === 'critical' ? 'high' : 'default',
+        channelId: 'blood-requests',
+      };
+    });
 
     // Send in batches of 100 (Expo limit)
     for (let i = 0; i < messages.length; i += 100) {
@@ -182,7 +186,7 @@ Deno.serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ success: true, notified: pushTokens.length }),
+      JSON.stringify({ success: true, notified: validDonors.length }),
       { status: 200 }
     );
 

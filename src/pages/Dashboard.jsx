@@ -15,7 +15,8 @@ import {
   ClockIcon,
   XCircleIcon,
   BeakerIcon,
-  ChevronRightIcon
+  ChevronRightIcon,
+  MagnifyingGlassIcon,
 } from '@heroicons/react/24/outline';
 import {
   getInstitutionProfile,

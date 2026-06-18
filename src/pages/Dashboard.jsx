@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { supabase } from '../config/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { getCurrentInstitution } from '../services/authService';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import {
@@ -44,6 +45,8 @@ const URGENCY_LEVELS = ['low', 'moderate', 'high', 'critical'];
 const Dashboard = () => {
   const { currentUser, logout } = useAuth();
   const navigate = useNavigate();
+  const storedInstitution = useMemo(() => getCurrentInstitution(), [currentUser?.id]);
+  const institutionId = currentUser?.id || storedInstitution?.id || null;
   const [activeTab, setActiveTab] = useState('home');
 
   // Data
@@ -154,57 +157,62 @@ const Dashboard = () => {
   }, [resetNotificationBadge]);
 
   const loadDashboardData = useCallback(async () => {
+    if (!institutionId) {
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     let requests = [];
     let donationsData = [];
     let activityData = [];
     let bcastData = [];
 
-    try { const profile = await getInstitutionProfile(currentUser.id); setInstitutionProfile(profile); if (profile) setProfileForm({ institution_name: profile.name || '', email: profile.email || '', phone: profile.phone || '', website: profile.website || '', address: profile.address || '' }); }
+    try { const profile = await getInstitutionProfile(institutionId); setInstitutionProfile(profile); if (profile) setProfileForm({ institution_name: profile.name || '', email: profile.email || '', phone: profile.phone || '', website: profile.website || '', address: profile.address || '' }); }
     catch (e) { console.error('Profile fetch failed:', e); }
 
-    try { requests = await getInstitutionRequests(currentUser.id); setBloodRequests(requests); }
+    try { requests = await getInstitutionRequests(institutionId); setBloodRequests(requests); }
     catch (e) { console.error('Requests fetch failed:', e); }
 
-    try { donationsData = await getInstitutionDonations(currentUser.id); setDonations(donationsData); }
+    try { donationsData = await getInstitutionDonations(institutionId); setDonations(donationsData); }
     catch (e) { console.error('Donations fetch failed:', e); }
 
-    try { const statsData = await getInstitutionStats(currentUser.id, requests, donationsData); setStats(statsData); }
+    try { const statsData = await getInstitutionStats(institutionId, requests, donationsData); setStats(statsData); }
     catch (e) { console.error('Stats compute failed:', e); }
 
-    try { activityData = await getRecentActivity(currentUser.id, 20); setActivity(activityData); }
+    try { activityData = await getRecentActivity(institutionId, 20); setActivity(activityData); }
     catch (e) { console.error('Activity fetch failed:', e); }
 
-    try { bcastData = await getUserNotifications(currentUser.id); setBroadcastNotifications(bcastData); }
+    try { bcastData = await getUserNotifications(institutionId); setBroadcastNotifications(bcastData); }
     catch (e) { console.error('Broadcast fetch failed:', e); }
 
     recalcNewActivity(activityData, bcastData);
 
     try {
-      const slotsData = await getInstitutionSlots(currentUser.id);
+      const slotsData = await getInstitutionSlots(institutionId);
       setInstitutionSlots(slotsData || []);
     } catch (e) { console.error('Slots fetch failed:', e); }
 
     try {
-      const inventoryData = await getBloodInventory(currentUser.id);
+      const inventoryData = await getBloodInventory(institutionId);
       setBloodInventory(inventoryData || []);
     } catch (e) { console.error('Inventory fetch failed:', e); }
 
     setLoading(false);
-  }, [currentUser?.id, recalcNewActivity]);
+  }, [institutionId, recalcNewActivity]);
 
   const loadDashboardDataRef = useRef(null);
   loadDashboardDataRef.current = loadDashboardData;
 
   useEffect(() => {
-    if (currentUser?.id) {
+    if (institutionId) {
       loadDashboardData();
 
       const realtimeSubscription = supabase
         .channel('institution-dashboard-realtime')
         .on(
           'postgres_changes',
-          { event: '*', schema: 'public', table: 'donations', filter: `institution_id=eq.${currentUser.id}` },
+          { event: '*', schema: 'public', table: 'donations', filter: `institution_id=eq.${institutionId}` },
           (payload) => {
             if (payload.eventType === 'INSERT') {
               toast.info('New donor volunteer response! Check your appointments.');
@@ -214,7 +222,7 @@ const Dashboard = () => {
         )
         .on(
           'postgres_changes',
-          { event: '*', schema: 'public', table: 'notifications', filter: `user_id=eq.${currentUser.id}` },
+          { event: '*', schema: 'public', table: 'notifications', filter: `user_id=eq.${institutionId}` },
           (payload) => {
             if (payload.eventType === 'INSERT') {
               toast.info(`New broadcast: ${payload.new?.title || 'Notice'}`);
@@ -228,7 +236,7 @@ const Dashboard = () => {
         supabase.removeChannel(realtimeSubscription);
       };
     }
-  }, [currentUser?.id, loadDashboardData]);
+  }, [institutionId, loadDashboardData]);
 
   const handleLogout = async () => {
     try { await logout(); navigate('/'); } catch { toast.error('Failed to log out'); }
@@ -238,8 +246,9 @@ const Dashboard = () => {
     e.preventDefault();
     setCreating(true);
     try {
+      if (!institutionId) throw new Error('Institution session is not ready. Please sign in again.');
       await createBloodRequest({
-        requester_id: currentUser.id,
+        requester_id: institutionId,
         request_type: 'institution',
         blood_type_needed: formData.blood_type_needed,
         units_needed: parseInt(formData.units_needed, 10),
@@ -297,7 +306,8 @@ const Dashboard = () => {
   const handleProfileSave = async () => {
     setProfileSaving(true);
     try {
-      await updateInstitutionProfile(currentUser.id, profileForm);
+      if (!institutionId) throw new Error('Institution session is not ready. Please sign in again.');
+      await updateInstitutionProfile(institutionId, profileForm);
       toast.success('Profile updated!');
       setProfileEditing(false);
       await loadDashboardData();
@@ -308,24 +318,26 @@ const Dashboard = () => {
   const handleLoadSlots = useCallback(async () => {
     setSlotsLoading(true);
     try {
-      const data = await getInstitutionSlots(currentUser.id);
+      if (!institutionId) throw new Error('Institution session is not ready. Please sign in again.');
+      const data = await getInstitutionSlots(institutionId);
       setInstitutionSlots(data || []);
     } catch (err) {
       toast.error('Failed to load slots: ' + err.message);
     } finally {
       setSlotsLoading(false);
     }
-  }, [currentUser?.id]);
+  }, [institutionId]);
 
   const handleAddSlot = async (e) => {
     e.preventDefault();
     setAddingSlot(true);
     try {
+      if (!institutionId) throw new Error('Institution session is not ready. Please sign in again.');
       const formattedStart = slotForm.start_time.length === 5 ? `${slotForm.start_time}:00` : slotForm.start_time;
       const formattedEnd = slotForm.end_time.length === 5 ? `${slotForm.end_time}:00` : slotForm.end_time;
       
       await addInstitutionSlot(
-        currentUser.id,
+        institutionId,
         parseInt(slotForm.day_of_week, 10),
         formattedStart,
         formattedEnd,
@@ -354,21 +366,23 @@ const Dashboard = () => {
   const handleLoadInventory = useCallback(async () => {
     setInventoryLoading(true);
     try {
-      const data = await getBloodInventory(currentUser.id);
+      if (!institutionId) throw new Error('Institution session is not ready. Please sign in again.');
+      const data = await getBloodInventory(institutionId);
       setBloodInventory(data || []);
     } catch (err) {
       toast.error('Failed to load blood inventory: ' + err.message);
     } finally {
       setInventoryLoading(false);
     }
-  }, [currentUser?.id]);
+  }, [institutionId]);
 
   const handleAdjustInventory = async (bloodType, newCount) => {
     if (newCount < 0) return;
     try {
-      await updateBloodInventory(currentUser.id, bloodType, newCount);
+      if (!institutionId) throw new Error('Institution session is not ready. Please sign in again.');
+      await updateBloodInventory(institutionId, bloodType, newCount);
       toast.success(`Updated ${bloodType} stock to ${newCount}`);
-      const inventoryData = await getBloodInventory(currentUser.id);
+      const inventoryData = await getBloodInventory(institutionId);
       setBloodInventory(inventoryData || []);
     } catch (err) {
       toast.error('Failed to update inventory: ' + err.message);

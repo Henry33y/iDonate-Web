@@ -497,8 +497,8 @@ const Dashboard = () => {
   const DAYS_OF_WEEK = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
   const urgencyColor = (l) => ({ critical: 'bg-red-100 text-red-700', high: 'bg-orange-100 text-orange-700', moderate: 'bg-amber-100 text-amber-700', low: 'bg-emerald-100 text-emerald-700' }[l] || 'bg-gray-100 text-gray-700');
-  const statusColor = (s) => ({ open: 'bg-blue-100 text-blue-700', matched: 'bg-purple-100 text-purple-700', in_progress: 'bg-amber-100 text-amber-700', completed: 'bg-emerald-100 text-emerald-700', cancelled: 'bg-slate-100 text-slate-600', expired: 'bg-slate-100 text-slate-400' }[s] || 'bg-slate-100 text-slate-700');
-  const donationStatusColor = (s) => ({ scheduled: 'bg-blue-100 text-blue-700', confirmed: 'bg-indigo-100 text-indigo-700', completed: 'bg-emerald-100 text-emerald-700', cancelled: 'bg-slate-100 text-slate-600', no_show: 'bg-rose-100 text-rose-700' }[s] || 'bg-slate-100 text-slate-700');
+  const statusColor = (s) => ({ open: 'bg-blue-100 text-blue-700', matched: 'bg-purple-100 text-purple-700', in_progress: 'bg-amber-100 text-amber-700', completed: 'bg-emerald-100 text-emerald-700', cancelled: 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300', expired: 'bg-slate-100 dark:bg-slate-700 text-slate-400' }[s] || 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200');
+  const donationStatusColor = (s) => ({ scheduled: 'bg-blue-100 text-blue-700', confirmed: 'bg-indigo-100 text-indigo-700', completed: 'bg-emerald-100 text-emerald-700', cancelled: 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300', no_show: 'bg-rose-100 text-rose-700' }[s] || 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200');
 
   const renderContent = () => {
     switch (activeTab) {
@@ -516,7 +516,7 @@ const Dashboard = () => {
                 { label: 'Unique Donors', value: stats.uniqueDonors, color: 'text-violet-600', bg: 'bg-violet-50', border: 'border-violet-100' },
               ].map(({ label, value, color, bg, border }) => (
                 <div key={label} className={`rounded-2xl p-5 border ${border} ${bg} backdrop-blur-xl bg-opacity-50 shadow-sm hover:shadow-md transition-all duration-300 transform hover:-translate-y-1`}>
-                  <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">{label}</p>
+                  <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">{label}</p>
                   <p className={`text-3xl font-black ${color}`}>{value}</p>
                 </div>
               ))}
@@ -526,7 +526,7 @@ const Dashboard = () => {
             <div className="flex flex-col md:flex-row gap-4">
               <button onClick={() => { setFormData(f => ({ ...f, urgency_level: 'critical' })); setActiveTab('create'); }}
                 className="group relative overflow-hidden flex-1 inline-flex items-center justify-center px-6 py-4 bg-gradient-to-r from-rose-500 to-red-600 text-white text-sm font-bold rounded-2xl hover:shadow-lg hover:shadow-red-500/30 transition-all duration-300 transform hover:-translate-y-0.5">
-                <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-in-out"></div>
+                <div className="absolute inset-0 bg-white dark:bg-slate-900 transition-colors/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-in-out"></div>
                 <PlusIcon className="h-5 w-5 mr-2 relative z-10" />
                 <span className="relative z-10">Create Urgent Request</span>
               </button>
@@ -548,9 +548,9 @@ const Dashboard = () => {
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               {/* Upcoming Donations */}
-              <div className="bg-white/70 backdrop-blur-xl rounded-3xl shadow-sm border border-slate-100 p-6 flex flex-col h-full">
+              <div className="bg-white dark:bg-slate-900 transition-colors/70 dark:bg-slate-900/70 backdrop-blur-xl rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800 p-6 flex flex-col h-full">
                 <div className="flex items-center justify-between mb-6">
-                  <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                  <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
                     <CalendarDaysIcon className="h-5 w-5 text-indigo-500" /> Upcoming Donations
                   </h3>
                   <button onClick={() => setActiveTab('donations')} className="text-sm font-semibold text-indigo-600 hover:text-indigo-700">View All</button>
@@ -563,14 +563,14 @@ const Dashboard = () => {
                     </div>
                   ) : (
                     upcomingDonations.slice(0, 4).map(d => (
-                      <div key={d.id} className="group flex items-center justify-between p-4 rounded-2xl bg-slate-50 hover:bg-indigo-50/50 border border-transparent hover:border-indigo-100 transition-all duration-300">
+                      <div key={d.id} className="group flex items-center justify-between p-4 rounded-2xl bg-slate-50 dark:bg-slate-800 hover:bg-indigo-50/50 border border-transparent hover:border-indigo-100 transition-all duration-300">
                         <div className="flex items-center gap-4">
                           <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-100 to-indigo-200 flex items-center justify-center text-indigo-700 font-black shadow-inner">
                             {d.donors?.blood_type || '?'}
                           </div>
                           <div>
-                            <p className="text-sm font-bold text-slate-800">{d.profiles?.full_name || 'Donor'}</p>
-                            <div className="flex items-center gap-2 text-xs text-slate-500 mt-0.5">
+                            <p className="text-sm font-bold text-slate-800 dark:text-slate-100">{d.profiles?.full_name || 'Donor'}</p>
+                            <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                               <ClockIcon className="h-3.5 w-3.5" />
                               {new Date(d.scheduled_date).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
                             </div>
@@ -586,9 +586,9 @@ const Dashboard = () => {
               </div>
 
               {/* Recent Requests */}
-              <div className="bg-white/70 backdrop-blur-xl rounded-3xl shadow-sm border border-slate-100 p-6 flex flex-col h-full">
+              <div className="bg-white dark:bg-slate-900 transition-colors/70 dark:bg-slate-900/70 backdrop-blur-xl rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800 p-6 flex flex-col h-full">
                 <div className="flex items-center justify-between mb-6">
-                  <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                  <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
                     <BeakerIcon className="h-5 w-5 text-rose-500" /> Recent Requests
                   </h3>
                   <button onClick={() => setActiveTab('requests')} className="text-sm font-semibold text-rose-600 hover:text-rose-700">Manage</button>
@@ -607,22 +607,22 @@ const Dashboard = () => {
                       const progress = Math.min((requestDonations.length / (req.max_donors || 1)) * 100, 100);
 
                       return (
-                        <div key={req.id} className="p-4 rounded-2xl bg-slate-50 hover:bg-rose-50/50 border border-transparent hover:border-rose-100 transition-all duration-300">
+                        <div key={req.id} className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800 hover:bg-rose-50/50 border border-transparent hover:border-rose-100 transition-all duration-300">
                           <div className="flex items-start justify-between mb-3">
                             <div className="flex items-center gap-3">
                               <div className="w-10 h-10 rounded-full bg-gradient-to-br from-rose-100 to-red-200 flex items-center justify-center text-red-700 font-black shadow-inner">
                                 {req.blood_type_needed}
                               </div>
                               <div>
-                                <p className="text-sm font-bold text-slate-800">{req.units_needed} Unit{req.units_needed > 1 ? 's' : ''}</p>
-                                <p className="text-xs text-slate-500 mt-0.5">{new Date(req.created_at).toLocaleDateString()}</p>
+                                <p className="text-sm font-bold text-slate-800 dark:text-slate-100">{req.units_needed} Unit{req.units_needed > 1 ? 's' : ''}</p>
+                                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{new Date(req.created_at).toLocaleDateString()}</p>
                               </div>
                             </div>
                             <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${statusColor(req.status)}`}>{req.status}</span>
                           </div>
                           {/* Progress Bar */}
                           <div className="space-y-1.5">
-                            <div className="flex justify-between text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                            <div className="flex justify-between text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                               <span>Donors</span>
                               <span>{requestDonations.length} / {req.max_donors || 1}</span>
                             </div>
@@ -643,24 +643,24 @@ const Dashboard = () => {
       case 'create':
         return (
           <div className="max-w-3xl animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-sm border border-slate-100 p-8 md:p-10">
-              <div className="mb-8 border-b border-slate-100 pb-6">
-                <h2 className="text-2xl font-black text-slate-900">Create Blood Request</h2>
-                <p className="text-sm text-slate-500 mt-2">Publish a new requirement to notify eligible donors in your area.</p>
+            <div className="bg-white dark:bg-slate-900 transition-colors/80 dark:bg-slate-900/80 backdrop-blur-xl rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800 p-8 md:p-10">
+              <div className="mb-8 border-b border-slate-100 dark:border-slate-800 pb-6">
+                <h2 className="text-2xl font-black text-slate-900 dark:text-white">Create Blood Request</h2>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">Publish a new requirement to notify eligible donors in your area.</p>
               </div>
               <form onSubmit={handleCreateRequest} className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
-                    <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Blood Type *</label>
+                    <label className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Blood Type *</label>
                     <select value={formData.blood_type_needed} onChange={e => setFormData(p => ({ ...p, blood_type_needed: e.target.value }))}
-                      className="w-full rounded-xl border border-slate-200 px-4 py-3 focus:border-rose-500 focus:ring-rose-500 bg-slate-50 hover:bg-slate-100 transition-colors text-slate-900 font-semibold appearance-none">
+                      className="w-full rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-3 focus:border-rose-500 focus:ring-rose-500 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:bg-slate-700 transition-colors text-slate-900 dark:text-white font-semibold appearance-none">
                       {BLOOD_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                     </select>
                   </div>
                   <div className="space-y-2">
-                    <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Urgency Level *</label>
+                    <label className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Urgency Level *</label>
                     <select value={formData.urgency_level} onChange={e => setFormData(p => ({ ...p, urgency_level: e.target.value }))}
-                      className="w-full rounded-xl border border-slate-200 px-4 py-3 focus:border-rose-500 focus:ring-rose-500 bg-slate-50 hover:bg-slate-100 transition-colors text-slate-900 font-semibold appearance-none">
+                      className="w-full rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-3 focus:border-rose-500 focus:ring-rose-500 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:bg-slate-700 transition-colors text-slate-900 dark:text-white font-semibold appearance-none">
                       {URGENCY_LEVELS.map(u => <option key={u} value={u}>{u.charAt(0).toUpperCase() + u.slice(1)}</option>)}
                     </select>
                   </div>
@@ -671,38 +671,38 @@ const Dashboard = () => {
                     <label className="text-[11px] font-bold text-rose-700 uppercase tracking-wider">Units Needed *</label>
                     <input type="number" min={1} value={formData.units_needed}
                       onChange={e => setFormData(p => ({ ...p, units_needed: e.target.value }))}
-                      className="w-full rounded-xl border border-rose-200 px-4 py-3 focus:border-rose-500 focus:ring-rose-500 bg-white text-slate-900 font-semibold" />
+                      className="w-full rounded-xl border border-rose-200 px-4 py-3 focus:border-rose-500 focus:ring-rose-500 bg-white dark:bg-slate-900 transition-colors text-slate-900 dark:text-white font-semibold" />
                   </div>
                   <div className="space-y-2">
                     <label className="text-[11px] font-bold text-rose-700 uppercase tracking-wider">Max Donors Needed</label>
                     <input type="number" min={1} value={formData.max_donors}
                       onChange={e => setFormData(p => ({ ...p, max_donors: e.target.value }))}
-                      className="w-full rounded-xl border border-rose-200 px-4 py-3 focus:border-rose-500 focus:ring-rose-500 bg-white text-slate-900 font-semibold" />
+                      className="w-full rounded-xl border border-rose-200 px-4 py-3 focus:border-rose-500 focus:ring-rose-500 bg-white dark:bg-slate-900 transition-colors text-slate-900 dark:text-white font-semibold" />
                     <p className="text-xs text-rose-500/70">Number of donors to fulfill this request</p>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
-                    <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Date Needed</label>
+                    <label className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Date Needed</label>
                     <input type="date" value={formData.date_needed}
                       onChange={e => setFormData(p => ({ ...p, date_needed: e.target.value }))}
                       min={new Date().toISOString().split('T')[0]}
-                      className="w-full rounded-xl border border-slate-200 px-4 py-3 focus:border-rose-500 focus:ring-rose-500 bg-slate-50 hover:bg-slate-100 transition-colors text-slate-900 font-semibold" />
+                      className="w-full rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-3 focus:border-rose-500 focus:ring-rose-500 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:bg-slate-700 transition-colors text-slate-900 dark:text-white font-semibold" />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Time Needed</label>
+                    <label className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Time Needed</label>
                     <input type="time" value={formData.time_needed}
                       onChange={e => setFormData(p => ({ ...p, time_needed: e.target.value }))}
-                      className="w-full rounded-xl border border-slate-200 px-4 py-3 focus:border-rose-500 focus:ring-rose-500 bg-slate-50 hover:bg-slate-100 transition-colors text-slate-900 font-semibold" />
+                      className="w-full rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-3 focus:border-rose-500 focus:ring-rose-500 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:bg-slate-700 transition-colors text-slate-900 dark:text-white font-semibold" />
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Reason / Description</label>
+                  <label className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Reason / Description</label>
                   <textarea rows={3} value={formData.description} onChange={e => setFormData(p => ({ ...p, description: e.target.value }))}
                     placeholder="e.g. Surgery scheduled, accident victim, thalassemia patient..." 
-                    className="w-full rounded-xl border border-slate-200 px-4 py-3 focus:border-rose-500 focus:ring-rose-500 bg-slate-50 hover:bg-slate-100 transition-colors text-slate-900 font-semibold resize-none" />
+                    className="w-full rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-3 focus:border-rose-500 focus:ring-rose-500 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:bg-slate-700 transition-colors text-slate-900 dark:text-white font-semibold resize-none" />
                 </div>
 
                 <div className="pt-4">
@@ -720,12 +720,12 @@ const Dashboard = () => {
         return (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
             {/* Filters */}
-            <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-sm border border-slate-100 p-5">
+            <div className="bg-white dark:bg-slate-900 transition-colors/80 dark:bg-slate-900/80 backdrop-blur-xl rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800 p-5">
               <div className="flex flex-wrap items-center gap-4">
                 <div className="flex items-center gap-2">
                   <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Type</span>
                   <select value={filters.bloodType} onChange={e => setFilters(f => ({ ...f, bloodType: e.target.value }))}
-                    className="rounded-lg border border-slate-200 px-3 py-2 text-sm bg-slate-50 text-slate-700 font-semibold focus:border-rose-500 focus:ring-rose-500 appearance-none">
+                    className="rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2 text-sm bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-semibold focus:border-rose-500 focus:ring-rose-500 appearance-none">
                     <option value="">All</option>
                     {BLOOD_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                   </select>
@@ -733,7 +733,7 @@ const Dashboard = () => {
                 <div className="flex items-center gap-2">
                   <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Urgency</span>
                   <select value={filters.urgency} onChange={e => setFilters(f => ({ ...f, urgency: e.target.value }))}
-                    className="rounded-lg border border-slate-200 px-3 py-2 text-sm bg-slate-50 text-slate-700 font-semibold focus:border-rose-500 focus:ring-rose-500 appearance-none">
+                    className="rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2 text-sm bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-semibold focus:border-rose-500 focus:ring-rose-500 appearance-none">
                     <option value="">All</option>
                     {URGENCY_LEVELS.map(u => <option key={u} value={u}>{u.charAt(0).toUpperCase() + u.slice(1)}</option>)}
                   </select>
@@ -741,7 +741,7 @@ const Dashboard = () => {
                 <div className="flex items-center gap-2">
                   <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Status</span>
                   <select value={filters.status} onChange={e => setFilters(f => ({ ...f, status: e.target.value }))}
-                    className="rounded-lg border border-slate-200 px-3 py-2 text-sm bg-slate-50 text-slate-700 font-semibold focus:border-rose-500 focus:ring-rose-500 appearance-none">
+                    className="rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2 text-sm bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-semibold focus:border-rose-500 focus:ring-rose-500 appearance-none">
                     <option value="">All</option>
                     <option value="open">Open</option>
                     <option value="matched">Matched</option>
@@ -759,8 +759,8 @@ const Dashboard = () => {
             {/* Requests Table Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {filteredRequests.length === 0 ? (
-                <div className="col-span-full text-center py-20 bg-white/50 backdrop-blur-sm rounded-3xl border border-dashed border-slate-300">
-                  <p className="text-slate-500 font-medium">No requests match your filters.</p>
+                <div className="col-span-full text-center py-20 bg-white dark:bg-slate-900 transition-colors/50 dark:bg-slate-900/50 backdrop-blur-sm rounded-3xl border border-dashed border-slate-300 dark:border-slate-600">
+                  <p className="text-slate-500 dark:text-slate-400 font-medium">No requests match your filters.</p>
                 </div>
               ) : (
                 filteredRequests.map(req => {
@@ -768,7 +768,7 @@ const Dashboard = () => {
                   const progress = Math.min((requestDonations.length / (req.max_donors || 1)) * 100, 100);
 
                   return (
-                    <div key={req.id} className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-sm border border-slate-100 p-6 hover:shadow-md transition-shadow">
+                    <div key={req.id} className="bg-white dark:bg-slate-900 transition-colors/80 dark:bg-slate-900/80 backdrop-blur-xl rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800 p-6 hover:shadow-md transition-shadow">
                       <div className="flex items-start justify-between mb-4">
                         <div className="flex gap-4">
                           <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-rose-100 to-red-200 flex items-center justify-center text-red-700 font-black text-xl shadow-inner">
@@ -776,24 +776,24 @@ const Dashboard = () => {
                           </div>
                           <div>
                             <div className="flex items-center gap-2 mb-1">
-                              <h3 className="text-lg font-black text-slate-800">{req.units_needed} Unit{req.units_needed > 1 ? 's' : ''}</h3>
+                              <h3 className="text-lg font-black text-slate-800 dark:text-slate-100">{req.units_needed} Unit{req.units_needed > 1 ? 's' : ''}</h3>
                               <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${urgencyColor(req.urgency_level)}`}>{req.urgency_level}</span>
                             </div>
-                            <p className="text-sm text-slate-500 line-clamp-1">{req.description || 'No description provided'}</p>
+                            <p className="text-sm text-slate-500 dark:text-slate-400 line-clamp-1">{req.description || 'No description provided'}</p>
                           </div>
                         </div>
                       </div>
 
                       {/* Progress */}
-                      <div className="bg-slate-50 rounded-2xl p-4 mb-4 border border-slate-100">
+                      <div className="bg-slate-50 dark:bg-slate-800 rounded-2xl p-4 mb-4 border border-slate-100 dark:border-slate-800">
                         <div className="flex justify-between items-end mb-2">
-                          <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Donor Responses</span>
-                          <span className="text-sm font-black text-slate-700">{requestDonations.length} / {req.max_donors || 1}</span>
+                          <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Donor Responses</span>
+                          <span className="text-sm font-black text-slate-700 dark:text-slate-200">{requestDonations.length} / {req.max_donors || 1}</span>
                         </div>
                         <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
                           <div className={`h-2 rounded-full transition-all duration-1000 ${progress === 100 ? 'bg-emerald-500' : 'bg-rose-500'}`} style={{ width: `${progress}%` }}></div>
                         </div>
-                        <div className="flex items-center gap-4 mt-3 text-xs font-semibold text-slate-500">
+                        <div className="flex items-center gap-4 mt-3 text-xs font-semibold text-slate-500 dark:text-slate-400">
                           <div className="flex items-center gap-1"><ClockIcon className="h-4 w-4" /> {req.date_needed ? new Date(req.date_needed).toLocaleDateString() : 'Flexible'}</div>
                           <div className="flex items-center gap-1">Status: <span className={statusColor(req.status).split(' ')[1]}>{req.status.replace('_', ' ')}</span></div>
                         </div>
@@ -807,7 +807,7 @@ const Dashboard = () => {
                             <button onClick={() => handleStatusChange(req.id, 'completed')}
                               className="flex-1 py-2 text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-xl transition-colors">Complete</button>
                             <button onClick={() => handleStatusChange(req.id, 'cancelled')}
-                              className="flex-1 py-2 text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors">Cancel</button>
+                              className="flex-1 py-2 text-xs font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 rounded-xl transition-colors">Cancel</button>
                           </>
                         )}
                         <button onClick={() => handleDeleteRequest(req.id)}
@@ -822,43 +822,43 @@ const Dashboard = () => {
             {/* Edit Modal */}
             {editingRequest && (
               <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in" onClick={() => setEditingRequest(null)}>
-                <div className="bg-white rounded-3xl shadow-2xl p-8 max-w-md w-full" onClick={e => e.stopPropagation()}>
-                  <h3 className="text-xl font-black text-slate-900 mb-6">Edit Request</h3>
+                <div className="bg-white dark:bg-slate-900 transition-colors rounded-3xl shadow-2xl p-8 max-w-md w-full" onClick={e => e.stopPropagation()}>
+                  <h3 className="text-xl font-black text-slate-900 dark:text-white mb-6">Edit Request</h3>
                   <div className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-1.5">
-                        <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Units Needed</label>
+                        <label className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Units Needed</label>
                         <input type="number" min={1} value={editForm.units_needed} onChange={e => setEditForm(f => ({ ...f, units_needed: parseInt(e.target.value, 10) }))}
-                          className="w-full rounded-xl border border-slate-200 px-4 py-3 bg-slate-50 text-slate-900 font-semibold focus:border-indigo-500 focus:ring-indigo-500" />
+                          className="w-full rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-3 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white font-semibold focus:border-indigo-500 focus:ring-indigo-500" />
                       </div>
                       <div className="space-y-1.5">
-                        <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Max Donors</label>
+                        <label className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Max Donors</label>
                         <input type="number" min={1} value={editForm.max_donors} onChange={e => setEditForm(f => ({ ...f, max_donors: parseInt(e.target.value, 10) }))}
-                          className="w-full rounded-xl border border-slate-200 px-4 py-3 bg-slate-50 text-slate-900 font-semibold focus:border-indigo-500 focus:ring-indigo-500" />
+                          className="w-full rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-3 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white font-semibold focus:border-indigo-500 focus:ring-indigo-500" />
                       </div>
                     </div>
                     <div className="space-y-1.5">
-                      <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Urgency</label>
+                      <label className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Urgency</label>
                       <select value={editForm.urgency_level} onChange={e => setEditForm(f => ({ ...f, urgency_level: e.target.value }))}
-                        className="w-full rounded-xl border border-slate-200 px-4 py-3 bg-slate-50 text-slate-900 font-semibold focus:border-indigo-500 focus:ring-indigo-500">
+                        className="w-full rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-3 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white font-semibold focus:border-indigo-500 focus:ring-indigo-500">
                         {URGENCY_LEVELS.map(u => <option key={u} value={u}>{u.charAt(0).toUpperCase() + u.slice(1)}</option>)}
                       </select>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-1.5">
-                        <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Date</label>
+                        <label className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Date</label>
                         <input type="date" value={editForm.date_needed} onChange={e => setEditForm(f => ({ ...f, date_needed: e.target.value }))}
-                          className="w-full rounded-xl border border-slate-200 px-4 py-3 bg-slate-50 text-slate-900 font-semibold focus:border-indigo-500 focus:ring-indigo-500" />
+                          className="w-full rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-3 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white font-semibold focus:border-indigo-500 focus:ring-indigo-500" />
                       </div>
                       <div className="space-y-1.5">
-                        <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Time</label>
+                        <label className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Time</label>
                         <input type="time" value={editForm.time_needed} onChange={e => setEditForm(f => ({ ...f, time_needed: e.target.value }))}
-                          className="w-full rounded-xl border border-slate-200 px-4 py-3 bg-slate-50 text-slate-900 font-semibold focus:border-indigo-500 focus:ring-indigo-500" />
+                          className="w-full rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-3 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white font-semibold focus:border-indigo-500 focus:ring-indigo-500" />
                       </div>
                     </div>
                     <div className="pt-4 flex gap-3">
                       <button onClick={handleEditSave} className="flex-1 py-3 rounded-xl text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition-all">Save Changes</button>
-                      <button onClick={() => setEditingRequest(null)} className="flex-1 py-3 rounded-xl text-sm font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 transition-all">Cancel</button>
+                      <button onClick={() => setEditingRequest(null)} className="flex-1 py-3 rounded-xl text-sm font-bold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 transition-all">Cancel</button>
                     </div>
                   </div>
                 </div>
@@ -878,14 +878,14 @@ const Dashboard = () => {
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                   {awaitingVerification.map(d => (
-                    <div key={d.id} className="bg-white/80 backdrop-blur rounded-2xl p-4 border border-amber-100 shadow-sm">
+                    <div key={d.id} className="bg-white dark:bg-slate-900 transition-colors/80 dark:bg-slate-900/80 backdrop-blur rounded-2xl p-4 border border-amber-100 shadow-sm">
                       <div className="flex justify-between items-start mb-3">
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center text-amber-700 font-black">
                             {d.donors?.blood_type || '?'}
                           </div>
                           <div>
-                            <p className="text-sm font-bold text-slate-800">{d.profiles?.full_name}</p>
+                            <p className="text-sm font-bold text-slate-800 dark:text-slate-100">{d.profiles?.full_name}</p>
                             <p className="text-xs text-amber-600 font-semibold">Self-reported complete</p>
                           </div>
                         </div>
@@ -901,20 +901,20 @@ const Dashboard = () => {
             )}
 
             {/* All Donations */}
-            <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
-              <div className="p-6 border-b border-slate-100">
-                <h2 className="text-xl font-black text-slate-900">All Appointments</h2>
+            <div className="bg-white dark:bg-slate-900 transition-colors/80 dark:bg-slate-900/80 backdrop-blur-xl rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800 overflow-hidden">
+              <div className="p-6 border-b border-slate-100 dark:border-slate-800">
+                <h2 className="text-xl font-black text-slate-900 dark:text-white">All Appointments</h2>
               </div>
               {donations.length === 0 ? (
                 <div className="text-center py-20">
                   <CalendarDaysIcon className="h-16 w-16 text-slate-200 mx-auto mb-4" />
-                  <p className="text-slate-500 font-medium">No donations scheduled yet.</p>
+                  <p className="text-slate-500 dark:text-slate-400 font-medium">No donations scheduled yet.</p>
                 </div>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse">
                     <thead>
-                      <tr className="bg-slate-50/50">
+                      <tr className="bg-slate-50 dark:bg-slate-800/50">
                         <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-wider">Donor</th>
                         <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-wider">Type</th>
                         <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-wider">Date & Time</th>
@@ -924,19 +924,19 @@ const Dashboard = () => {
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       {donations.map(d => (
-                        <tr key={d.id} className="hover:bg-slate-50/50 transition-colors">
+                        <tr key={d.id} className="hover:bg-slate-50 dark:bg-slate-800/50 transition-colors">
                           <td className="px-6 py-4">
                             <div className="flex items-center gap-3">
                               {d.profiles?.avatar_url ? (
                                 <img src={d.profiles.avatar_url} alt="" className="w-10 h-10 rounded-full object-cover shadow-sm" />
                               ) : (
-                                <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 text-sm font-black shadow-sm">
+                                <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-slate-500 dark:text-slate-400 text-sm font-black shadow-sm">
                                   {d.profiles?.full_name?.charAt(0) || '?'}
                                 </div>
                               )}
                               <div>
-                                <p className="text-sm font-bold text-slate-800">{d.profiles?.full_name || 'Unknown'}</p>
-                                <p className="text-xs text-slate-500 font-medium">{d.profiles?.phone_number || ''}</p>
+                                <p className="text-sm font-bold text-slate-800 dark:text-slate-100">{d.profiles?.full_name || 'Unknown'}</p>
+                                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">{d.profiles?.phone_number || ''}</p>
                               </div>
                             </div>
                           </td>
@@ -946,8 +946,8 @@ const Dashboard = () => {
                             </span>
                           </td>
                           <td className="px-6 py-4">
-                            <p className="text-sm font-bold text-slate-700">{new Date(d.scheduled_date).toLocaleDateString()}</p>
-                            <p className="text-xs text-slate-500 font-medium">{new Date(d.scheduled_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                            <p className="text-sm font-bold text-slate-700 dark:text-slate-200">{new Date(d.scheduled_date).toLocaleDateString()}</p>
+                            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">{new Date(d.scheduled_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
                           </td>
                           <td className="px-6 py-4">
                             <span className={`px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${donationStatusColor(d.status)}`}>
@@ -991,12 +991,12 @@ const Dashboard = () => {
                                 </div>
                               )}
                               {d.status === 'cancelled' && (
-                                <span className="text-[10px] font-bold bg-slate-100 text-slate-500 px-2.5 py-1 rounded-full uppercase tracking-wider">
+                                <span className="text-[10px] font-bold bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 px-2.5 py-1 rounded-full uppercase tracking-wider">
                                   Cancelled
                                 </span>
                               )}
                               {d.status === 'no_show' && (
-                                <span className="text-[10px] font-bold bg-slate-100 text-slate-500 px-2.5 py-1 rounded-full uppercase tracking-wider">
+                                <span className="text-[10px] font-bold bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 px-2.5 py-1 rounded-full uppercase tracking-wider">
                                   No Show
                                 </span>
                               )}
@@ -1013,26 +1013,26 @@ const Dashboard = () => {
             {/* Complete Donation Modal */}
             {completingDonation && (
               <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in" onClick={() => setCompletingDonation(null)}>
-                <div className="bg-white rounded-3xl shadow-2xl p-8 max-w-sm w-full" onClick={e => e.stopPropagation()}>
+                <div className="bg-white dark:bg-slate-900 transition-colors rounded-3xl shadow-2xl p-8 max-w-sm w-full" onClick={e => e.stopPropagation()}>
                   <div className="flex items-center justify-center w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full mb-6 mx-auto">
                     <CheckCircleIcon className="h-8 w-8" />
                   </div>
-                  <h3 className="text-xl font-black text-slate-900 mb-2 text-center">Verify Donation</h3>
-                  <p className="text-sm text-slate-500 mb-6 text-center">Enter the units collected to complete this process.</p>
+                  <h3 className="text-xl font-black text-slate-900 dark:text-white mb-2 text-center">Verify Donation</h3>
+                  <p className="text-sm text-slate-500 dark:text-slate-400 mb-6 text-center">Enter the units collected to complete this process.</p>
                   
                   <div className="space-y-5">
                     <div className="space-y-2 text-center">
-                      <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Units Collected</label>
+                      <label className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Units Collected</label>
                       <input type="number" min={1} value={completionUnits}
                         onChange={e => setCompletionUnits(parseInt(e.target.value, 10) || 1)}
                         className="w-full text-center text-3xl font-black rounded-2xl border border-emerald-200 px-4 py-4 bg-emerald-50/50 text-emerald-900 focus:border-emerald-500 focus:ring-emerald-500 transition-colors" />
                     </div>
 
                     <div className="space-y-1.5">
-                      <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block text-left">Feedback & Notes for Donor</label>
+                      <label className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block text-left">Feedback & Notes for Donor</label>
                       <textarea value={completionNotes} onChange={e => setCompletionNotes(e.target.value)}
                         placeholder="Add a thank-you note or medical instructions..."
-                        className="w-full rounded-2xl border border-slate-200 px-4 py-3 bg-slate-50 text-slate-800 text-xs font-semibold focus:border-emerald-500 focus:ring-emerald-500 transition-colors min-h-[70px] resize-none" />
+                        className="w-full rounded-2xl border border-slate-200 dark:border-slate-700 px-4 py-3 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-100 text-xs font-semibold focus:border-emerald-500 focus:ring-emerald-500 transition-colors min-h-[70px] resize-none" />
                     </div>
 
                     <div className="flex flex-col gap-2.5">
@@ -1041,7 +1041,7 @@ const Dashboard = () => {
                         Complete Verification
                       </button>
                       <button onClick={() => setCompletingDonation(null)}
-                        className="w-full py-3 rounded-xl text-sm font-bold text-slate-500 hover:text-slate-800 transition-colors">
+                        className="w-full py-3 rounded-xl text-sm font-bold text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:text-slate-100 transition-colors">
                         Cancel
                       </button>
                     </div>
@@ -1061,7 +1061,7 @@ const Dashboard = () => {
                 <span className="text-[10px] font-black uppercase tracking-wider text-indigo-100">Total Units Collected</span>
                 <p className="text-4xl font-black mt-2">{analyticsData.totalUnitsCollected}</p>
                 <div className="mt-4 flex items-center text-xs text-indigo-100 font-medium">
-                  <span className="bg-white/20 px-2 py-0.5 rounded-full mr-2">Completed</span>
+                  <span className="bg-white dark:bg-slate-900 transition-colors/20 px-2 py-0.5 rounded-full mr-2">Completed</span>
                   From successful donations
                 </div>
               </div>
@@ -1069,7 +1069,7 @@ const Dashboard = () => {
                 <span className="text-[10px] font-black uppercase tracking-wider text-rose-100">Fulfillment Rate</span>
                 <p className="text-4xl font-black mt-2">{analyticsData.rate}%</p>
                 <div className="mt-4 flex items-center text-xs text-rose-100 font-medium">
-                  <span className="bg-white/20 px-2 py-0.5 rounded-full mr-2">{analyticsData.fulfilled}/{analyticsData.total}</span>
+                  <span className="bg-white dark:bg-slate-900 transition-colors/20 px-2 py-0.5 rounded-full mr-2">{analyticsData.fulfilled}/{analyticsData.total}</span>
                   Requests fulfilled
                 </div>
               </div>
@@ -1077,7 +1077,7 @@ const Dashboard = () => {
                 <span className="text-[10px] font-black uppercase tracking-wider text-emerald-100">Donor Retention Rate</span>
                 <p className="text-4xl font-black mt-2">{analyticsData.donorRetentionRate}%</p>
                 <div className="mt-4 flex items-center text-xs text-emerald-100 font-medium">
-                  <span className="bg-white/20 px-2 py-0.5 rounded-full mr-2">{analyticsData.totalUniqueDonors} Donors</span>
+                  <span className="bg-white dark:bg-slate-900 transition-colors/20 px-2 py-0.5 rounded-full mr-2">{analyticsData.totalUniqueDonors} Donors</span>
                   Repeat donors count
                 </div>
               </div>
@@ -1085,7 +1085,7 @@ const Dashboard = () => {
                 <span className="text-[10px] font-black uppercase tracking-wider text-amber-100">Pending Actions</span>
                 <p className="text-4xl font-black mt-2">{awaitingVerification.length}</p>
                 <div className="mt-4 flex items-center text-xs text-amber-100 font-medium">
-                  <span className="bg-white/20 px-2 py-0.5 rounded-full mr-2">Review</span>
+                  <span className="bg-white dark:bg-slate-900 transition-colors/20 px-2 py-0.5 rounded-full mr-2">Review</span>
                   Donations to verify
                 </div>
               </div>
@@ -1093,9 +1093,9 @@ const Dashboard = () => {
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               {/* Monthly Collections Trend */}
-              <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-sm border border-slate-100 p-6 lg:col-span-2 flex flex-col justify-between">
+              <div className="bg-white dark:bg-slate-900 transition-colors/80 dark:bg-slate-900/80 backdrop-blur-xl rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800 p-6 lg:col-span-2 flex flex-col justify-between">
                 <div>
-                  <h3 className="text-lg font-black text-slate-800 mb-1">Monthly Donation Collection</h3>
+                  <h3 className="text-lg font-black text-slate-800 dark:text-slate-100 mb-1">Monthly Donation Collection</h3>
                   <p className="text-xs text-slate-400 font-medium mb-6">Completed donations volume over the last 6 months</p>
                 </div>
                 
@@ -1104,14 +1104,14 @@ const Dashboard = () => {
                   {/* Grid Lines */}
                   <div className="absolute inset-0 flex flex-col justify-between pointer-events-none pb-8">
                     {[0, 1, 2, 3].map(i => (
-                      <div key={i} className="w-full border-t border-slate-100 flex justify-end text-[9px] text-slate-300 font-bold pr-2 pt-1">
+                      <div key={i} className="w-full border-t border-slate-100 dark:border-slate-800 flex justify-end text-[9px] text-slate-300 font-bold pr-2 pt-1">
                         {Math.round((analyticsData.maxMonthly / 3) * (3 - i))}
                       </div>
                     ))}
                   </div>
 
                   {/* Columns */}
-                  <div className="relative z-10 flex items-end justify-around h-44 gap-2 px-4 border-b border-slate-100 pb-2">
+                  <div className="relative z-10 flex items-end justify-around h-44 gap-2 px-4 border-b border-slate-100 dark:border-slate-800 pb-2">
                     {analyticsData.months.map(m => {
                       const heightPct = (m.count / analyticsData.maxMonthly) * 100;
                       return (
@@ -1139,15 +1139,15 @@ const Dashboard = () => {
               </div>
 
               {/* Appointment Status Ratios */}
-              <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-sm border border-slate-100 p-6 flex flex-col justify-between">
+              <div className="bg-white dark:bg-slate-900 transition-colors/80 dark:bg-slate-900/80 backdrop-blur-xl rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800 p-6 flex flex-col justify-between">
                 <div>
-                  <h3 className="text-lg font-black text-slate-800 mb-1">Appointment Ratios</h3>
+                  <h3 className="text-lg font-black text-slate-800 dark:text-slate-100 mb-1">Appointment Ratios</h3>
                   <p className="text-xs text-slate-400 font-medium mb-6">Distribution of registered schedules by outcome</p>
                 </div>
 
                 <div className="space-y-5">
                   {/* Segmented Stacked Progress Bar */}
-                  <div className="w-full h-4 rounded-full bg-slate-100 overflow-hidden flex shadow-inner">
+                  <div className="w-full h-4 rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden flex shadow-inner">
                     {Object.entries(analyticsData.apptStatusBreakdown).map(([status, count]) => {
                       if (count === 0 || analyticsData.totalAppts === 0) return null;
                       const pct = (count / analyticsData.totalAppts) * 100;
@@ -1174,7 +1174,7 @@ const Dashboard = () => {
                         confirmed: 'bg-indigo-500 text-indigo-700 bg-indigo-50',
                         scheduled: 'bg-blue-500 text-blue-700 bg-blue-50',
                         no_show: 'bg-rose-500 text-rose-700 bg-rose-50',
-                        cancelled: 'bg-slate-400 text-slate-600 bg-slate-100',
+                        cancelled: 'bg-slate-400 text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700',
                       };
                       const dotColors = {
                         completed: 'bg-emerald-500',
@@ -1199,9 +1199,9 @@ const Dashboard = () => {
             </div>
 
             {/* Blood Type Supply vs Demand Chart */}
-            <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-sm border border-slate-100 p-8">
+            <div className="bg-white dark:bg-slate-900 transition-colors/80 dark:bg-slate-900/80 backdrop-blur-xl rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800 p-8">
               <div className="mb-6">
-                <h3 className="text-lg font-black text-slate-800 mb-1">Blood Type Supply vs. Demand</h3>
+                <h3 className="text-lg font-black text-slate-800 dark:text-slate-100 mb-1">Blood Type Supply vs. Demand</h3>
                 <p className="text-xs text-slate-400 font-medium">Comparison of posted blood requests (Demand) against completed donations (Supply) by blood group</p>
               </div>
 
@@ -1210,8 +1210,8 @@ const Dashboard = () => {
                   const demandPct = (item.demand / analyticsData.maxDemandOrSupply) * 100;
                   const supplyPct = (item.supply / analyticsData.maxDemandOrSupply) * 100;
                   return (
-                    <div key={item.bloodType} className="flex items-center gap-4 bg-slate-50/50 p-3.5 rounded-2xl border border-slate-100">
-                      <span className="w-10 text-sm font-black text-slate-700 flex-shrink-0">{item.bloodType}</span>
+                    <div key={item.bloodType} className="flex items-center gap-4 bg-slate-50 dark:bg-slate-800/50 p-3.5 rounded-2xl border border-slate-100 dark:border-slate-800">
+                      <span className="w-10 text-sm font-black text-slate-700 dark:text-slate-200 flex-shrink-0">{item.bloodType}</span>
                       
                       {/* Side-by-side Dual Progress Bar */}
                       <div className="flex-1 space-y-1.5">
@@ -1239,7 +1239,7 @@ const Dashboard = () => {
               </div>
 
               {/* Chart Legend */}
-              <div className="flex items-center justify-center gap-6 mt-6 pt-4 border-t border-slate-100 text-xs font-bold uppercase tracking-wider text-slate-400">
+              <div className="flex items-center justify-center gap-6 mt-6 pt-4 border-t border-slate-100 dark:border-slate-800 text-xs font-bold uppercase tracking-wider text-slate-400">
                 <div className="flex items-center gap-2">
                   <span className="w-3.5 h-3.5 rounded-full bg-gradient-to-r from-rose-400 to-rose-600" />
                   <span>Requests (Demand)</span>
@@ -1256,15 +1256,15 @@ const Dashboard = () => {
       case 'profile':
         return (
           <div className="max-w-3xl animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
-              <div className="bg-gradient-to-r from-slate-50 to-slate-100 p-8 border-b border-slate-200/60 flex items-center justify-between">
+            <div className="bg-white dark:bg-slate-900 transition-colors/80 dark:bg-slate-900/80 backdrop-blur-xl rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800 overflow-hidden">
+              <div className="bg-gradient-to-r from-slate-50 to-slate-100 p-8 border-b border-slate-200 dark:border-slate-700/60 flex items-center justify-between">
                 <div>
-                  <h2 className="text-2xl font-black text-slate-900">Institution Profile</h2>
-                  <p className="text-sm text-slate-500 mt-1 font-medium">Manage your public information</p>
+                  <h2 className="text-2xl font-black text-slate-900 dark:text-white">Institution Profile</h2>
+                  <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 font-medium">Manage your public information</p>
                 </div>
                 {!profileEditing ? (
                   <button onClick={() => setProfileEditing(true)}
-                    className="px-6 py-2.5 rounded-xl text-sm font-bold text-indigo-700 bg-white border border-indigo-100 shadow-sm hover:shadow-md hover:border-indigo-200 transition-all">
+                    className="px-6 py-2.5 rounded-xl text-sm font-bold text-indigo-700 bg-white dark:bg-slate-900 transition-colors border border-indigo-100 shadow-sm hover:shadow-md hover:border-indigo-200 transition-all">
                     Edit Profile
                   </button>
                 ) : (
@@ -1274,7 +1274,7 @@ const Dashboard = () => {
                       {profileSaving ? 'Saving...' : 'Save Changes'}
                     </button>
                     <button onClick={() => { setProfileEditing(false); if (institutionProfile) setProfileForm({ institution_name: institutionProfile.name || '', email: institutionProfile.email || '', phone: institutionProfile.phone || '', website: institutionProfile.website || '', address: institutionProfile.address || '' }); }}
-                      className="px-6 py-2.5 rounded-xl text-sm font-bold text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 transition-all">
+                      className="px-6 py-2.5 rounded-xl text-sm font-bold text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-900 transition-colors border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:bg-slate-800 transition-all">
                       Cancel
                     </button>
                   </div>
@@ -1296,22 +1296,22 @@ const Dashboard = () => {
                           {profileEditing ? (
                             <input type={type} value={profileForm[key] || ''}
                               onChange={e => setProfileForm(f => ({ ...f, [key]: e.target.value }))}
-                              className="w-full rounded-xl border border-slate-200 px-4 py-3 bg-slate-50 text-slate-900 font-semibold focus:border-indigo-500 focus:ring-indigo-500 transition-colors" />
+                              className="w-full rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-3 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white font-semibold focus:border-indigo-500 focus:ring-indigo-500 transition-colors" />
                           ) : (
-                            <p className="text-base text-slate-800 font-bold bg-slate-50/50 border border-slate-100 rounded-xl px-4 py-3">{profileForm[key] || '—'}</p>
+                            <p className="text-base text-slate-800 dark:text-slate-100 font-bold bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-xl px-4 py-3">{profileForm[key] || '—'}</p>
                           )}
                         </div>
                       ))}
                     </div>
 
-                    <div className="grid grid-cols-2 gap-6 p-6 bg-slate-50 rounded-2xl border border-slate-100">
+                    <div className="grid grid-cols-2 gap-6 p-6 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-800">
                       <div>
                         <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Type</label>
-                        <p className="text-sm text-slate-800 font-bold capitalize">{institutionProfile.type || '—'}</p>
+                        <p className="text-sm text-slate-800 dark:text-slate-100 font-bold capitalize">{institutionProfile.type || '—'}</p>
                       </div>
                       <div>
                         <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Status</label>
-                        <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-white shadow-sm border border-slate-100">
+                        <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-white dark:bg-slate-900 transition-colors shadow-sm border border-slate-100 dark:border-slate-800">
                           {institutionProfile.verified ? (
                             <><CheckCircleIcon className="h-4 w-4 text-emerald-500" /> <span className="text-emerald-700">Verified</span></>
                           ) : (
@@ -1322,16 +1322,16 @@ const Dashboard = () => {
                     </div>
 
                     {institutionProfile.contactPerson && (
-                      <div className="pt-6 border-t border-slate-100">
-                        <h4 className="text-sm font-black text-slate-900 mb-4">Primary Contact</h4>
+                      <div className="pt-6 border-t border-slate-100 dark:border-slate-800">
+                        <h4 className="text-sm font-black text-slate-900 dark:text-white mb-4">Primary Contact</h4>
                         <div className="grid grid-cols-2 gap-6">
                           <div>
                             <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">Name</label>
-                            <p className="text-sm text-slate-800 font-bold">{institutionProfile.contactPerson.name}</p>
+                            <p className="text-sm text-slate-800 dark:text-slate-100 font-bold">{institutionProfile.contactPerson.name}</p>
                           </div>
                           <div>
                             <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">Role</label>
-                            <p className="text-sm text-slate-500 font-semibold">{institutionProfile.contactPerson.role}</p>
+                            <p className="text-sm text-slate-500 dark:text-slate-400 font-semibold">{institutionProfile.contactPerson.role}</p>
                           </div>
                         </div>
                       </div>
@@ -1352,15 +1352,15 @@ const Dashboard = () => {
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
               {/* Add Slot Form */}
-              <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-sm border border-slate-100 p-6 h-fit">
-                <h3 className="text-lg font-bold text-slate-800 mb-4">Add Operating Slot</h3>
+              <div className="bg-white dark:bg-slate-900 transition-colors/80 dark:bg-slate-900/80 backdrop-blur-xl rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800 p-6 h-fit">
+                <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 mb-4">Add Operating Slot</h3>
                 <form onSubmit={handleAddSlot} className="space-y-4">
                   <div>
-                    <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Day of Week</label>
+                    <label className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block mb-1">Day of Week</label>
                     <select
                       value={slotForm.day_of_week}
                       onChange={e => setSlotForm(prev => ({ ...prev, day_of_week: parseInt(e.target.value, 10) }))}
-                      className="w-full rounded-xl border border-slate-200 px-4 py-2.5 bg-slate-50 text-slate-900 font-semibold focus:border-rose-500 focus:ring-rose-500 text-sm"
+                      className="w-full rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-2.5 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white font-semibold focus:border-rose-500 focus:ring-rose-500 text-sm"
                     >
                       {DAYS_OF_WEEK.map((day, idx) => (
                         <option key={idx} value={idx}>{day}</option>
@@ -1369,34 +1369,34 @@ const Dashboard = () => {
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Start Time</label>
+                      <label className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block mb-1">Start Time</label>
                       <input
                         type="time"
                         value={slotForm.start_time}
                         onChange={e => setSlotForm(prev => ({ ...prev, start_time: e.target.value }))}
-                        className="w-full rounded-xl border border-slate-200 px-4 py-2 bg-slate-50 text-slate-900 font-semibold focus:border-rose-500 focus:ring-rose-500 text-sm"
+                        className="w-full rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-2 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white font-semibold focus:border-rose-500 focus:ring-rose-500 text-sm"
                         required
                       />
                     </div>
                     <div>
-                      <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1">End Time</label>
+                      <label className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block mb-1">End Time</label>
                       <input
                         type="time"
                         value={slotForm.end_time}
                         onChange={e => setSlotForm(prev => ({ ...prev, end_time: e.target.value }))}
-                        className="w-full rounded-xl border border-slate-200 px-4 py-2 bg-slate-50 text-slate-900 font-semibold focus:border-rose-500 focus:ring-rose-500 text-sm"
+                        className="w-full rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-2 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white font-semibold focus:border-rose-500 focus:ring-rose-500 text-sm"
                         required
                       />
                     </div>
                   </div>
                   <div>
-                    <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Max Capacity (Booking Cap)</label>
+                    <label className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block mb-1">Max Capacity (Booking Cap)</label>
                     <input
                       type="number"
                       min="1"
                       value={slotForm.max_capacity}
                       onChange={e => setSlotForm(prev => ({ ...prev, max_capacity: parseInt(e.target.value, 10) || 1 }))}
-                      className="w-full rounded-xl border border-slate-200 px-4 py-2 bg-slate-50 text-slate-900 font-semibold focus:border-rose-500 focus:ring-rose-500 text-sm"
+                      className="w-full rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-2 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white font-semibold focus:border-rose-500 focus:ring-rose-500 text-sm"
                       required
                     />
                   </div>
@@ -1412,8 +1412,8 @@ const Dashboard = () => {
 
               {/* Configured Slots List */}
               <div className="lg:col-span-2 space-y-6">
-                <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-sm border border-slate-100 p-6">
-                  <h3 className="text-lg font-bold text-slate-800 mb-6">Configured Operating Slots</h3>
+                <div className="bg-white dark:bg-slate-900 transition-colors/80 dark:bg-slate-900/80 backdrop-blur-xl rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800 p-6">
+                  <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 mb-6">Configured Operating Slots</h3>
                   
                   {slotsLoading ? (
                     <div className="py-12 flex justify-center">
@@ -1428,8 +1428,8 @@ const Dashboard = () => {
                       {DAYS_OF_WEEK.map((dayName, dayIdx) => {
                         const daySlots = institutionSlots.filter(s => s.day_of_week === dayIdx);
                         return (
-                          <div key={dayIdx} className="border-b border-slate-100 pb-4 last:border-0 last:pb-0">
-                            <h4 className="text-sm font-black text-slate-700 uppercase tracking-wider mb-3">{dayName}</h4>
+                          <div key={dayIdx} className="border-b border-slate-100 dark:border-slate-800 pb-4 last:border-0 last:pb-0">
+                            <h4 className="text-sm font-black text-slate-700 dark:text-slate-200 uppercase tracking-wider mb-3">{dayName}</h4>
                             {daySlots.length === 0 ? (
                               <p className="text-xs text-slate-400 font-medium italic pl-1">Closed / No slots configured</p>
                             ) : (
@@ -1438,11 +1438,11 @@ const Dashboard = () => {
                                   const start = slot.start_time ? slot.start_time.substring(0, 5) : '';
                                   const end = slot.end_time ? slot.end_time.substring(0, 5) : '';
                                   return (
-                                    <div key={slot.id} className="flex items-center justify-between p-3.5 bg-slate-50 border border-slate-100 rounded-2xl group hover:bg-slate-100 transition-colors">
+                                    <div key={slot.id} className="flex items-center justify-between p-3.5 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800 rounded-2xl group hover:bg-slate-100 dark:bg-slate-700 transition-colors">
                                       <div className="flex items-center gap-3">
                                         <ClockIcon className="h-5 w-5 text-slate-400" />
                                         <div>
-                                          <p className="text-sm font-bold text-slate-800">{start} - {end}</p>
+                                          <p className="text-sm font-bold text-slate-800 dark:text-slate-100">{start} - {end}</p>
                                           <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider mt-0.5">Capacity: {slot.max_capacity} bookings</p>
                                         </div>
                                       </div>
@@ -1471,8 +1471,8 @@ const Dashboard = () => {
       case 'inventory':
         return (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-sm border border-slate-100 p-6">
-              <h3 className="text-lg font-bold text-slate-800 mb-2">Blood Bag Inventory</h3>
+            <div className="bg-white dark:bg-slate-900 transition-colors/80 dark:bg-slate-900/80 backdrop-blur-xl rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800 p-6">
+              <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 mb-2">Blood Bag Inventory</h3>
               <p className="text-xs text-slate-400 font-medium mb-6">Monitor and update blood bag stock. Counts auto-increment when donation appointments are verified.</p>
               
               {inventoryLoading ? (
@@ -1484,28 +1484,28 @@ const Dashboard = () => {
                   {BLOOD_TYPES.map(bt => {
                     const count = inventoryMap[bt] || 0;
                     return (
-                      <div key={bt} className="bg-slate-50 border border-slate-100 rounded-3xl p-5 flex flex-col items-center justify-between text-center relative group hover:shadow-md hover:bg-slate-50/50 transition-all">
+                      <div key={bt} className="bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800 rounded-3xl p-5 flex flex-col items-center justify-between text-center relative group hover:shadow-md hover:bg-slate-50 dark:bg-slate-800/50 transition-all">
                         <div className="w-16 h-16 rounded-full bg-gradient-to-br from-rose-100 to-red-200 flex items-center justify-center text-red-700 font-black text-2xl shadow-inner mb-4">
                           {bt}
                         </div>
                         
                         <div className="space-y-1 mb-4">
                           <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Current Stock</p>
-                          <p className="text-3xl font-black text-slate-800">{count} Unit{count !== 1 ? 's' : ''}</p>
+                          <p className="text-3xl font-black text-slate-800 dark:text-slate-100">{count} Unit{count !== 1 ? 's' : ''}</p>
                         </div>
                         
                         {/* Plus/Minus Adjustment Controls */}
                         <div className="flex items-center gap-3 w-full justify-center">
                           <button
                             onClick={() => handleAdjustInventory(bt, Math.max(0, count - 1))}
-                            className="w-10 h-10 rounded-xl bg-white border border-slate-200 text-slate-600 font-bold hover:bg-slate-100 flex items-center justify-center shadow-sm text-lg transition-colors"
+                            className="w-10 h-10 rounded-xl bg-white dark:bg-slate-900 transition-colors border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-bold hover:bg-slate-100 dark:bg-slate-700 flex items-center justify-center shadow-sm text-lg transition-colors"
                             disabled={count <= 0}
                           >
                             -
                           </button>
                           <button
                             onClick={() => handleAdjustInventory(bt, count + 1)}
-                            className="w-10 h-10 rounded-xl bg-white border border-slate-200 text-slate-600 font-bold hover:bg-slate-100 flex items-center justify-center shadow-sm text-lg transition-colors"
+                            className="w-10 h-10 rounded-xl bg-white dark:bg-slate-900 transition-colors border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-bold hover:bg-slate-100 dark:bg-slate-700 flex items-center justify-center shadow-sm text-lg transition-colors"
                           >
                             +
                           </button>
@@ -1525,16 +1525,16 @@ const Dashboard = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#FAFAFA] text-slate-900 font-sans selection:bg-rose-200">
+    <div className="min-h-screen bg-[#FAFAFA] text-slate-900 dark:text-white font-sans selection:bg-rose-200">
       <div className="flex h-screen overflow-hidden">
         {/* Sidebar */}
-        <div className="w-72 bg-white shadow-[4px_0_24px_rgba(0,0,0,0.02)] border-r border-slate-100 flex flex-col z-20">
+        <div className="w-72 bg-white dark:bg-slate-900 transition-colors shadow-[4px_0_24px_rgba(0,0,0,0.02)] border-r border-slate-100 dark:border-slate-800 flex flex-col z-20">
           <div className="p-8">
             <div className="flex items-center gap-3 mb-2">
               <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-rose-500 to-red-600 flex items-center justify-center shadow-lg shadow-red-500/20">
                 <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" /></svg>
               </div>
-              <h1 className="text-2xl font-black tracking-tight text-slate-900">iDonate</h1>
+              <h1 className="text-2xl font-black tracking-tight text-slate-900 dark:text-white">iDonate</h1>
             </div>
             <p className="text-xs font-bold text-slate-400 uppercase tracking-widest pl-11">Institution</p>
           </div>
@@ -1555,9 +1555,9 @@ const Dashboard = () => {
                   className={`group flex items-center w-full px-4 py-3.5 rounded-2xl text-sm font-bold transition-all duration-300 ${
                     activeTab === tab.key 
                       ? 'bg-rose-50 text-rose-700 shadow-sm border border-rose-100/50' 
-                      : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900 border border-transparent'
+                      : 'text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:bg-slate-800 hover:text-slate-900 dark:text-white border border-transparent'
                   }`}>
-                  <Icon className={`h-5 w-5 mr-3 transition-colors ${activeTab === tab.key ? 'text-rose-600' : 'text-slate-400 group-hover:text-slate-600'}`} />
+                  <Icon className={`h-5 w-5 mr-3 transition-colors ${activeTab === tab.key ? 'text-rose-600' : 'text-slate-400 group-hover:text-slate-600 dark:text-slate-300'}`} />
                   {tab.label}
                   {tab.key === 'donations' && awaitingVerification.length > 0 && (
                     <span className="ml-auto bg-amber-500 text-white text-[10px] py-0.5 px-2 rounded-full font-black shadow-sm">
@@ -1571,17 +1571,17 @@ const Dashboard = () => {
 
           <div className="p-4 mt-auto">
             <button onClick={() => setActiveTab('profile')}
-              className={`flex items-center w-full p-3 rounded-2xl transition-all duration-300 border ${activeTab === 'profile' ? 'bg-slate-50 border-slate-200' : 'border-transparent hover:bg-slate-50'}`}>
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center text-slate-600 border border-slate-200/50 shadow-sm">
+              className={`flex items-center w-full p-3 rounded-2xl transition-all duration-300 border ${activeTab === 'profile' ? 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700' : 'border-transparent hover:bg-slate-50 dark:bg-slate-800'}`}>
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700/50 shadow-sm">
                 <UserCircleIcon className="h-6 w-6" />
               </div>
               <div className="ml-3 text-left overflow-hidden">
-                <p className="text-sm font-bold text-slate-900 truncate">{institutionProfile?.name || 'Institution'}</p>
-                <p className="text-xs font-semibold text-slate-500 truncate">Settings & Profile</p>
+                <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{institutionProfile?.name || 'Institution'}</p>
+                <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 truncate">Settings & Profile</p>
               </div>
             </button>
             <button onClick={handleLogout}
-              className="mt-3 flex items-center justify-center w-full py-3 rounded-xl text-sm font-bold text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition-colors">
+              className="mt-3 flex items-center justify-center w-full py-3 rounded-xl text-sm font-bold text-slate-500 dark:text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors">
               Log out
             </button>
           </div>
@@ -1590,18 +1590,18 @@ const Dashboard = () => {
         {/* Main Content Area */}
         <div className="flex-1 flex flex-col h-screen overflow-hidden relative">
           {/* Header */}
-          <header className="h-24 bg-white/60 backdrop-blur-md border-b border-slate-100/50 flex items-center justify-between px-8 z-10 sticky top-0">
+          <header className="h-24 bg-white dark:bg-slate-900 transition-colors/60 backdrop-blur-md border-b border-slate-100 dark:border-slate-800/50 flex items-center justify-between px-8 z-10 sticky top-0">
             <div>
-              <h1 className="text-2xl font-black text-slate-900 tracking-tight">
+              <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
                 {{ home: 'Overview', create: 'Create Request', requests: 'Manage Requests', donations: 'Appointments', slots: 'Operating Slots', inventory: 'Blood Inventory', analytics: 'Analytics', profile: 'Institution Profile' }[activeTab]}
               </h1>
-              <p className="text-sm font-medium text-slate-500 mt-1">{new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
+              <p className="text-sm font-medium text-slate-500 dark:text-slate-400 mt-1">{new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
             </div>
             
             <div className="flex items-center gap-4">
               <div className="relative">
                 <button onClick={handleToggleNotifications}
-                  className="relative p-2.5 rounded-xl bg-white border border-slate-200 text-slate-400 hover:text-slate-600 hover:border-slate-300 hover:shadow-sm transition-all focus:outline-none">
+                  className="relative p-2.5 rounded-xl bg-white dark:bg-slate-900 transition-colors border border-slate-200 dark:border-slate-700 text-slate-400 hover:text-slate-600 dark:text-slate-300 hover:border-slate-300 dark:border-slate-600 hover:shadow-sm transition-all focus:outline-none">
                   <BellIcon className="h-5 w-5" />
                   {newActivityCount > 0 && (
                     <span className="absolute top-0 right-0 -mt-1 -mr-1 flex h-5 w-5">
@@ -1613,9 +1613,9 @@ const Dashboard = () => {
                   )}
                 </button>
                 {showNotifications && (
-                  <div className="absolute right-0 top-14 w-96 bg-white/90 backdrop-blur-2xl rounded-3xl shadow-[0_20px_40px_-15px_rgba(0,0,0,0.1)] border border-slate-100 z-50 overflow-hidden animate-in fade-in slide-in-from-top-4">
-                    <div className="p-5 border-b border-slate-100/60 bg-white/50 flex items-center justify-between">
-                      <h3 className="text-sm font-black text-slate-900">Recent Activity</h3>
+                  <div className="absolute right-0 top-14 w-96 bg-white dark:bg-slate-900 transition-colors/90 backdrop-blur-2xl rounded-3xl shadow-[0_20px_40px_-15px_rgba(0,0,0,0.1)] border border-slate-100 dark:border-slate-800 z-50 overflow-hidden animate-in fade-in slide-in-from-top-4">
+                    <div className="p-5 border-b border-slate-100 dark:border-slate-800/60 bg-white dark:bg-slate-900 transition-colors/50 dark:bg-slate-900/50 flex items-center justify-between">
+                      <h3 className="text-sm font-black text-slate-900 dark:text-white">Recent Activity</h3>
                       {newActivityCount > 0 && <span className="text-[10px] font-bold uppercase tracking-wider text-rose-500">{newActivityCount} New</span>}
                     </div>
                     <div className="max-h-[400px] overflow-y-auto">
@@ -1627,20 +1627,20 @@ const Dashboard = () => {
                       ) : (
                         <div className="divide-y divide-slate-50">
                           {combinedNotifications.slice(0, 15).map(item => (
-                            <div key={item.id} className="p-4 hover:bg-slate-50/80 transition-colors flex gap-4 items-start">
+                            <div key={item.id} className="p-4 hover:bg-slate-50 dark:bg-slate-800/80 transition-colors flex gap-4 items-start">
                               <div className={`w-2 h-2 mt-1.5 rounded-full flex-shrink-0 ${new Date(item.created_at) > new Date(lastSeenRef.current || 0) ? 'bg-rose-500' : 'bg-slate-200'}`}></div>
                               <div className="min-w-0 flex-1">
                                 {item.isBroadcast ? (
                                   <div>
                                     <div className="flex items-center gap-2 mb-1">
                                       <span className="px-2 py-0.5 rounded-md bg-purple-100 text-purple-700 text-[9px] font-black uppercase tracking-wider">Broadcast</span>
-                                      <span className="font-bold text-slate-900 truncate block text-sm">{item.title}</span>
+                                      <span className="font-bold text-slate-900 dark:text-white truncate block text-sm">{item.title}</span>
                                     </div>
-                                    <p className="text-sm text-slate-600 leading-snug break-words">{item.message}</p>
+                                    <p className="text-sm text-slate-600 dark:text-slate-300 leading-snug break-words">{item.message}</p>
                                   </div>
                                 ) : (
-                                  <p className="text-sm text-slate-700 leading-snug">
-                                    <span className="font-bold text-slate-900">{item.title}</span>
+                                  <p className="text-sm text-slate-700 dark:text-slate-200 leading-snug">
+                                    <span className="font-bold text-slate-900 dark:text-white">{item.title}</span>
                                     {' '}{item.message}
                                   </p>
                                 )}

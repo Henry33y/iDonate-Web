@@ -14,10 +14,10 @@ import {
   BellIcon,
   CheckCircleIcon,
   ClockIcon,
-  XCircleIcon,
   BeakerIcon,
   ChevronRightIcon,
-  MagnifyingGlassIcon,
+  ChevronDownIcon,
+  Cog6ToothIcon,
 } from '@heroicons/react/24/outline';
 import {
   getInstitutionProfile,
@@ -45,9 +45,11 @@ const URGENCY_LEVELS = ['low', 'moderate', 'high', 'critical'];
 const Dashboard = () => {
   const { currentUser, logout } = useAuth();
   const navigate = useNavigate();
-  const storedInstitution = useMemo(() => getCurrentInstitution(), [currentUser?.id]);
+  const storedInstitution = useMemo(() => getCurrentInstitution(), []);
   const institutionId = currentUser?.id || storedInstitution?.id || null;
   const [activeTab, setActiveTab] = useState('home');
+  const [settingsDropdownOpen, setSettingsDropdownOpen] = useState(false);
+  const dropdownRef = useRef(null);
 
   // Data
   const [stats, setStats] = useState({ activeRequests: 0, fulfilledRequests: 0, totalRequests: 0, upcomingDonations: 0, completedDonations: 0, uniqueDonors: 0 });
@@ -61,7 +63,7 @@ const Dashboard = () => {
   const [institutionSlots, setInstitutionSlots] = useState([]);
   const [bloodInventory, setBloodInventory] = useState([]);
   const [slotsLoading, setSlotsLoading] = useState(false);
-  const [inventoryLoading, setInventoryLoading] = useState(false);
+  const [inventoryLoading] = useState(false);
 
   // Add slot form state
   const [slotForm, setSlotForm] = useState({
@@ -71,13 +73,6 @@ const Dashboard = () => {
     max_capacity: 5
   });
   const [addingSlot, setAddingSlot] = useState(false);
-
-  // Manual inventory adjustment form state
-  const [inventoryForm, setInventoryForm] = useState({
-    blood_type: 'A+',
-    units_count: 0
-  });
-  const [updatingInventory, setUpdatingInventory] = useState(false);
 
   // Create form
   const [formData, setFormData] = useState({
@@ -238,6 +233,19 @@ const Dashboard = () => {
     }
   }, [institutionId, loadDashboardData]);
 
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setSettingsDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
   const handleLogout = async () => {
     try { await logout(); navigate('/'); } catch { toast.error('Failed to log out'); }
   };
@@ -362,19 +370,6 @@ const Dashboard = () => {
       toast.error('Failed to delete slot: ' + err.message);
     }
   };
-
-  const handleLoadInventory = useCallback(async () => {
-    setInventoryLoading(true);
-    try {
-      if (!institutionId) throw new Error('Institution session is not ready. Please sign in again.');
-      const data = await getBloodInventory(institutionId);
-      setBloodInventory(data || []);
-    } catch (err) {
-      toast.error('Failed to load blood inventory: ' + err.message);
-    } finally {
-      setInventoryLoading(false);
-    }
-  }, [institutionId]);
 
   const handleAdjustInventory = async (bloodType, newCount) => {
     if (newCount < 0) return;
@@ -1559,8 +1554,6 @@ const Dashboard = () => {
               { key: 'create', icon: PlusIcon, label: 'Create Request' },
               { key: 'requests', icon: ClipboardDocumentListIcon, label: 'Manage Requests' },
               { key: 'donations', icon: CalendarDaysIcon, label: 'Appointments' },
-              { key: 'slots', icon: ClockIcon, label: 'Operating Slots' },
-              { key: 'inventory', icon: BeakerIcon, label: 'Blood Inventory' },
               { key: 'analytics', icon: ChartBarIcon, label: 'Analytics' },
             ].map((tab) => {
               const Icon = tab.icon;
@@ -1584,16 +1577,41 @@ const Dashboard = () => {
           </nav>
 
           <div className="p-4 mt-auto">
-            <button onClick={() => setActiveTab('profile')}
-              className={`flex items-center w-full p-3 rounded-2xl transition-all duration-300 border ${activeTab === 'profile' ? 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700' : 'border-transparent hover:bg-slate-50 dark:bg-slate-800'}`}>
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700/50 shadow-sm">
-                <UserCircleIcon className="h-6 w-6" />
-              </div>
-              <div className="ml-3 text-left overflow-hidden">
-                <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{institutionProfile?.name || 'Institution'}</p>
-                <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 truncate">Settings & Profile</p>
-              </div>
-            </button>
+            {/* Settings Dropdown */}
+            <div ref={dropdownRef} className="relative">
+              <button onClick={() => setSettingsDropdownOpen(!settingsDropdownOpen)}
+                className={`flex items-center w-full p-3 rounded-2xl transition-all duration-300 border ${['profile', 'slots', 'inventory'].includes(activeTab) ? 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700' : 'border-transparent hover:bg-slate-50 dark:bg-slate-800'}`}>
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700/50 shadow-sm">
+                  <Cog6ToothIcon className="h-6 w-6" />
+                </div>
+                <div className="ml-3 text-left overflow-hidden flex-1">
+                  <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{institutionProfile?.name || 'Institution'}</p>
+                  <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 truncate">Settings</p>
+                </div>
+                <ChevronDownIcon className={`h-4 w-4 text-slate-400 transition-transform duration-200 ${settingsDropdownOpen ? 'rotate-180' : ''}`} />
+              </button>
+              
+              {/* Dropdown Menu */}
+              {settingsDropdownOpen && (
+                <div className="absolute bottom-full left-0 right-0 mb-2 bg-white dark:bg-slate-900 rounded-2xl shadow-lg border border-slate-200 dark:border-slate-700 overflow-hidden animate-in fade-in slide-in-from-bottom-2">
+                  {[
+                    { key: 'profile', icon: UserCircleIcon, label: 'Institution Profile' },
+                    { key: 'slots', icon: ClockIcon, label: 'Operating Slots' },
+                    { key: 'inventory', icon: BeakerIcon, label: 'Blood Inventory' },
+                  ].map((tab) => {
+                    const Icon = tab.icon;
+                    return (
+                      <button key={tab.key} onClick={() => { setActiveTab(tab.key); setSettingsDropdownOpen(false); }}
+                        className={`flex items-center w-full px-4 py-3 text-sm font-bold transition-all duration-200 hover:bg-slate-50 dark:hover:bg-slate-800 ${activeTab === tab.key ? 'text-rose-700 bg-rose-50 dark:bg-slate-800' : 'text-slate-700 dark:text-slate-200'}`}>
+                        <Icon className="h-5 w-5 mr-3" />
+                        {tab.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
             <button onClick={handleLogout}
               className="mt-3 flex items-center justify-center w-full py-3 rounded-xl text-sm font-bold text-slate-500 dark:text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors">
               Log out

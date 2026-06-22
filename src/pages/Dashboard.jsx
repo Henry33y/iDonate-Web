@@ -1540,12 +1540,10 @@ const Dashboard = () => {
         <div className="w-72 bg-white dark:bg-slate-900 transition-colors shadow-[4px_0_24px_rgba(0,0,0,0.02)] border-r border-slate-100 dark:border-slate-800 flex flex-col z-20">
           <div className="p-8">
             <div className="flex items-center gap-3 mb-2">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-rose-500 to-red-600 flex items-center justify-center shadow-lg shadow-red-500/20">
-                <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" /></svg>
-              </div>
+              <img src="/icon.png" alt="iDonate Logo" className="w-12 h-12 object-contain" />
               <h1 className="text-2xl font-black tracking-tight text-slate-900 dark:text-white">iDonate</h1>
             </div>
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest pl-11">Institution</p>
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest pl-14">Institution</p>
           </div>
           
           <nav className="flex-1 mt-6 px-4 space-y-1.5 overflow-y-auto">

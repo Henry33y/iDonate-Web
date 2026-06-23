@@ -114,6 +114,9 @@ const Dashboard = () => {
   const [newActivityCount, setNewActivityCount] = useState(0);
   const [messageAppointmentId, setMessageAppointmentId] = useState(null);
   const activityRef = useRef([]);
+  const refreshNotificationsRef = useRef(null);
+  const knownNotificationIdsRef = useRef(new Set());
+  const toastedNotificationIdsRef = useRef(new Set());
 
   const recalcNewActivity = useCallback((activityList, broadcastList) => {
     const since = lastSeenRef.current;
@@ -164,6 +167,36 @@ const Dashboard = () => {
     });
   }, [resetNotificationBadge]);
 
+  const getNotificationToastMessage = useCallback((notification) => {
+    if (!notification) return 'New notification received.';
+    if (notification.type === 'appointment_message') {
+      return `${notification.title || 'New appointment message'}${notification.message ? `: ${notification.message}` : ''}`;
+    }
+    return `${notification.title || 'New notification'}${notification.message ? `: ${notification.message}` : ''}`;
+  }, []);
+
+  const showNotificationToast = useCallback((notification) => {
+    if (!notification?.id || toastedNotificationIdsRef.current.has(notification.id)) return;
+
+    toastedNotificationIdsRef.current.add(notification.id);
+    toast.info(getNotificationToastMessage(notification));
+  }, [getNotificationToastMessage]);
+
+  const applyNotifications = useCallback((notifications, { toastNew = false } = {}) => {
+    const nextNotifications = notifications || [];
+
+    if (toastNew) {
+      nextNotifications
+        .filter((notification) => !knownNotificationIdsRef.current.has(notification.id))
+        .sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+        .forEach(showNotificationToast);
+    }
+
+    knownNotificationIdsRef.current = new Set(nextNotifications.map((notification) => notification.id));
+    setBroadcastNotifications(nextNotifications);
+    recalcNewActivity(activityRef.current, nextNotifications);
+  }, [recalcNewActivity, showNotificationToast]);
+
   const loadDashboardData = useCallback(async () => {
     if (!institutionId) {
       setLoading(false);
@@ -191,7 +224,7 @@ const Dashboard = () => {
     try { activityData = await getRecentActivity(institutionId, 20); activityRef.current = activityData; setActivity(activityData); }
     catch (e) { console.error('Activity fetch failed:', e); }
 
-    try { bcastData = await getUserNotifications(institutionId); setBroadcastNotifications(bcastData); }
+    try { bcastData = await getUserNotifications(institutionId); applyNotifications(bcastData, { toastNew: false }); }
     catch (e) { console.error('Broadcast fetch failed:', e); }
 
     recalcNewActivity(activityData, bcastData);
@@ -207,67 +240,102 @@ const Dashboard = () => {
     } catch (e) { console.error('Inventory fetch failed:', e); }
 
     setLoading(false);
-  }, [institutionId, recalcNewActivity]);
+  }, [institutionId, recalcNewActivity, applyNotifications]);
 
   const loadDashboardDataRef = useRef(null);
   loadDashboardDataRef.current = loadDashboardData;
 
+  refreshNotificationsRef.current = async () => {
+    if (!institutionId) return;
+    try {
+      const data = await getUserNotifications(institutionId);
+      applyNotifications(data, { toastNew: true });
+    } catch (e) {
+      console.error('Notification refresh failed:', e);
+    }
+  };
+
   useEffect(() => {
     if (institutionId) {
       loadDashboardData();
-
-      const realtimeSubscription = supabase
-        .channel('institution-dashboard-realtime')
-        .on(
-          'postgres_changes',
-          { event: '*', schema: 'public', table: 'donations', filter: `institution_id=eq.${institutionId}` },
-          (payload) => {
-            if (payload.eventType === 'INSERT') {
-              toast.info('New donor volunteer response! Check your appointments.');
-            }
-            loadDashboardDataRef.current?.();
-          }
-        )
-        .on(
-          'postgres_changes',
-          { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${institutionId}` },
-          (payload) => {
-            if (payload.eventType === 'INSERT') {
-              const newNotification = payload.new;
-              toast.info(newNotification?.type === 'appointment_message'
-                ? 'New appointment message received.'
-                : `New notification: ${newNotification?.title || 'Notice'}`
-              );
-
-              if (newNotification) {
-                setBroadcastNotifications(prev => {
-                  const next = [
-                    newNotification,
-                    ...prev.filter(item => item.id !== newNotification.id)
-                  ].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-                  recalcNewActivity(activityRef.current, next);
-                  return next;
-                });
-              }
-
-              return;
-            }
-
-            getUserNotifications(institutionId)
-              .then(data => {
-                setBroadcastNotifications(data);
-                recalcNewActivity(activityRef.current, data);
-              })
-              .catch(e => console.error('Notification refresh failed:', e));
-          }
-        )
-        .subscribe();
-
-      return () => {
-        supabase.removeChannel(realtimeSubscription);
-      };
     }
-  }, [institutionId, loadDashboardData, recalcNewActivity]);
+  }, [institutionId, loadDashboardData]);
+
+  useEffect(() => {
+    if (!institutionId) return undefined;
+
+    const channelName = `institution-dashboard-realtime:${institutionId}`;
+    console.log('[iDonate:Dashboard] Opening realtime channel:', channelName, {
+      institutionId,
+      authUserId: currentUser?.id,
+      storedInstitutionId: storedInstitution?.id,
+    });
+
+    const realtimeSubscription = supabase
+      .channel(channelName)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'donations', filter: `institution_id=eq.${institutionId}` },
+        (payload) => {
+          if (payload.eventType === 'INSERT') {
+            toast.info('New donor volunteer response! Check your appointments.');
+          }
+          loadDashboardDataRef.current?.();
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'notifications' },
+        (payload) => {
+          const newNotification = payload.new;
+          console.log('[iDonate:Dashboard] Notification realtime payload:', {
+            notificationId: newNotification?.id,
+            notificationUserId: newNotification?.user_id,
+            institutionId,
+            type: newNotification?.type,
+          });
+
+          if (newNotification?.user_id !== institutionId) {
+            console.log('[iDonate:Dashboard] Ignoring notification for another user:', newNotification?.user_id);
+            return;
+          }
+
+          showNotificationToast(newNotification);
+
+          setBroadcastNotifications(prev => {
+            const next = [
+              newNotification,
+              ...prev.filter(item => item.id !== newNotification.id)
+            ].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+            knownNotificationIdsRef.current.add(newNotification.id);
+            recalcNewActivity(activityRef.current, next);
+            return next;
+          });
+        }
+      )
+      .subscribe((status, err) => {
+        console.log(`[iDonate:Dashboard] Realtime status for ${channelName}:`, status);
+        if (err) {
+          console.error(`[iDonate:Dashboard] Realtime error for ${channelName}:`, err);
+        }
+        if (status === 'SUBSCRIBED') {
+          refreshNotificationsRef.current?.();
+        }
+        if (status === 'CHANNEL_ERROR') {
+          console.warn('[iDonate:Dashboard] Realtime updates are not connected; using notification sync fallback.');
+        }
+      });
+
+    const notificationSyncInterval = window.setInterval(() => {
+      refreshNotificationsRef.current?.();
+    }, 5000);
+
+    return () => {
+      console.log('[iDonate:Dashboard] Closing realtime channel:', channelName);
+      window.clearInterval(notificationSyncInterval);
+      supabase.removeChannel(realtimeSubscription);
+    };
+  }, [institutionId, recalcNewActivity, showNotificationToast]);
 
   // Close dropdown when clicking outside
   useEffect(() => {

@@ -52,6 +52,34 @@ const AppointmentMessages = ({ institutionId, donations = [], initialAppointment
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
+  const clearConversationUnread = useCallback((conversationId) => {
+    if (!conversationId || !institutionId) return;
+
+    const readAt = new Date().toISOString();
+    setConversations((prev) =>
+      prev.map((conv) => {
+        if (conv.id !== conversationId) return conv;
+
+        return {
+          ...conv,
+          unreadCount: 0,
+          messages: (conv.messages || []).map((message) =>
+            message.sender_id !== institutionId && !message.read_at
+              ? { ...message, read_at: readAt }
+              : message
+          ),
+        };
+      })
+    );
+    setMessages((prev) =>
+      prev.map((message) =>
+        message.sender_id !== institutionId && !message.read_at
+          ? { ...message, read_at: readAt }
+          : message
+      )
+    );
+  }, [institutionId]);
+
   const loadConversations = useCallback(async () => {
     if (!institutionId) return;
     try {
@@ -71,17 +99,23 @@ const AppointmentMessages = ({ institutionId, donations = [], initialAppointment
     setMessagesLoading(true);
     try {
       const data = await getConversationMessages(conversationId);
-      setMessages(data);
       if (institutionId) {
         await markConversationMessagesRead(conversationId, institutionId);
       }
+      const readAt = new Date().toISOString();
+      setMessages(data.map((message) =>
+        message.sender_id !== institutionId && !message.read_at
+          ? { ...message, read_at: readAt }
+          : message
+      ));
+      clearConversationUnread(conversationId);
       scrollToBottom();
     } catch (err) {
       toast.error('Failed to load conversation: ' + err.message);
     } finally {
       setMessagesLoading(false);
     }
-  }, [institutionId]);
+  }, [institutionId, clearConversationUnread]);
 
   useEffect(() => {
     loadConversations();
@@ -95,6 +129,7 @@ const AppointmentMessages = ({ institutionId, donations = [], initialAppointment
       lastOpenedAppointmentRef.current = initialAppointmentId;
       const existing = conversations.find((c) => c.appointment_id === initialAppointmentId);
       if (existing) {
+        clearConversationUnread(existing.id);
         setSelectedId(existing.id);
         return;
       }
@@ -115,7 +150,7 @@ const AppointmentMessages = ({ institutionId, donations = [], initialAppointment
     };
 
     openInitial();
-  }, [initialAppointmentId, conversations, donations, institutionId, loading, loadConversations]);
+  }, [initialAppointmentId, conversations, donations, institutionId, loading, loadConversations, clearConversationUnread]);
 
   useEffect(() => {
     if (!institutionId) return;
@@ -134,14 +169,20 @@ const AppointmentMessages = ({ institutionId, donations = [], initialAppointment
           if (selectedId && newMsg.conversation_id === selectedId) {
             setMessages((prev) => {
               if (prev.some((m) => m.id === newMsg.id)) return prev;
-              return [...prev, newMsg];
+              return [...prev, newMsg.sender_id !== institutionId ? { ...newMsg, read_at: new Date().toISOString() } : newMsg];
             });
             if (newMsg.sender_id !== institutionId) {
-              markConversationMessagesRead(selectedId, institutionId);
+              clearConversationUnread(selectedId);
+              markConversationMessagesRead(selectedId, institutionId)
+                .then(() => loadConversations())
+                .catch((err) => console.error('Failed to mark realtime message as read:', err));
+            } else {
+              loadConversations();
             }
             scrollToBottom();
+          } else {
+            loadConversations();
           }
-          loadConversations();
         }
       )
       .on(
@@ -165,7 +206,7 @@ const AppointmentMessages = ({ institutionId, donations = [], initialAppointment
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [institutionId, selectedId, loadConversations]);
+  }, [institutionId, selectedId, loadConversations, clearConversationUnread]);
 
   useEffect(() => {
     if (selectedId) {
@@ -201,6 +242,19 @@ const AppointmentMessages = ({ institutionId, donations = [], initialAppointment
       toast.error('Could not start conversation: ' + err.message);
     } finally {
       setOpeningAppointmentId(null);
+    }
+  };
+
+  const handleSelectConversation = async (conversationId) => {
+    setSelectedId(conversationId);
+    clearConversationUnread(conversationId);
+
+    if (conversationId === selectedId && institutionId) {
+      try {
+        await markConversationMessagesRead(conversationId, institutionId);
+      } catch (err) {
+        toast.error('Failed to mark messages as read: ' + err.message);
+      }
     }
   };
 
@@ -280,7 +334,7 @@ const AppointmentMessages = ({ institutionId, donations = [], initialAppointment
                     <button
                       key={conv.id}
                       type="button"
-                      onClick={() => setSelectedId(conv.id)}
+                      onClick={() => handleSelectConversation(conv.id)}
                       className={`w-full text-left p-4 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/50 ${
                         isSelected ? 'bg-rose-50 dark:bg-rose-950/30 border-l-4 border-rose-500' : ''
                       }`}

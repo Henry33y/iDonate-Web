@@ -178,7 +178,10 @@ const AdminDashboard = () => {
   useEffect(() => {
     const channel = supabase
       .channel('admin-institutions-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'institutions' }, () => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'institutions' }, (payload) => {
+        if (payload.eventType === 'INSERT' && payload.new?.status === 'pending') {
+          toast.info(`${payload.new?.institution_name || 'A new institution'} is awaiting approval.`);
+        }
         // Refresh all data when institutions table changes
         if (loadAllDataRef.current) loadAllDataRef.current();
       })

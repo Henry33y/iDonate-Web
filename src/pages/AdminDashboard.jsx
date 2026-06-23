@@ -442,7 +442,7 @@ const AdminDashboard = () => {
           { label: 'Total Requests', value: stats?.totalRequests },
           { label: 'Total Donations', value: stats?.totalDonations },
         ].map(({ label, value }) => (
-          <div key={label} className="bg-white rounded-xl p-4 border border-gray-100">
+          <div key={label} className="bg-white dark:bg-slate-900 transition-colors rounded-xl p-4 border border-gray-100">
             <p className="text-xs text-gray-400 uppercase tracking-wide">{label}</p>
             <p className="text-xl font-bold text-gray-800 mt-1">{value ?? '—'}</p>
           </div>
@@ -450,7 +450,7 @@ const AdminDashboard = () => {
       </div>
 
       {/* Quick Actions */}
-      <div className="bg-white rounded-xl border border-gray-100 p-6">
+      <div className="bg-white dark:bg-slate-900 transition-colors rounded-xl border border-gray-100 p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
         <div className="flex flex-wrap gap-3">
           <button onClick={() => { setActiveTab('institutions'); setInstFilter('pending'); }}
@@ -489,7 +489,7 @@ const AdminDashboard = () => {
           const count = f === 'all' ? institutions.length : institutions.filter(i => i.status === f).length;
           return (
             <button key={f} onClick={() => setInstFilter(f)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${instFilter === f ? 'bg-red-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'}`}>
+              className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${instFilter === f ? 'bg-red-600 text-white' : 'bg-white dark:bg-slate-900 transition-colors text-gray-600 hover:bg-gray-100 border border-gray-200'}`}>
               {f.charAt(0).toUpperCase() + f.slice(1)} ({count})
             </button>
           );
@@ -500,7 +500,7 @@ const AdminDashboard = () => {
       {filteredInstitutions.length === 0 ? (
         <div className="text-center py-12 text-gray-400">No institutions found for this filter</div>
       ) : (
-        <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+        <div className="bg-white dark:bg-slate-900 transition-colors rounded-xl border border-gray-100 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
@@ -556,12 +556,12 @@ const AdminDashboard = () => {
           <div className="relative flex-1 min-w-[200px] max-w-sm">
             <MagnifyingGlassIcon className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
             <input type="text" placeholder="Search by name or email..." value={userSearch} onChange={e => setUserSearch(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent" />
+              className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg bg-white dark:bg-slate-900 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent" />
           </div>
           <div className="flex gap-2">
             {roles.map(r => (
               <button key={r} onClick={() => setUserRoleFilter(r)}
-                className={`px-3 py-2 rounded-lg text-xs font-medium transition-colors ${userRoleFilter === r ? 'bg-red-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'}`}>
+                className={`px-3 py-2 rounded-lg text-xs font-medium transition-colors ${userRoleFilter === r ? 'bg-red-600 text-white' : 'bg-white dark:bg-slate-900 transition-colors text-gray-600 hover:bg-gray-100 border border-gray-200'}`}>
                 {r === 'all' ? 'All' : r.replace('_', ' ')}
               </button>
             ))}
@@ -583,7 +583,7 @@ const AdminDashboard = () => {
         </div>
 
         {/* Users Table */}
-        <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+        <div className="bg-white dark:bg-slate-900 transition-colors rounded-xl border border-gray-100 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
@@ -717,7 +717,7 @@ const AdminDashboard = () => {
         <div className="flex gap-2">
           {['all', 'open', 'matched', 'in_progress', 'completed', 'cancelled'].map(s => (
             <button key={s} onClick={() => setRequestStatusFilter(s)}
-              className={`px-3 py-2 rounded-lg text-xs font-medium transition-colors ${requestStatusFilter === s ? 'bg-red-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'}`}>
+              className={`px-3 py-2 rounded-lg text-xs font-medium transition-colors ${requestStatusFilter === s ? 'bg-red-600 text-white' : 'bg-white dark:bg-slate-900 transition-colors text-gray-600 hover:bg-gray-100 border border-gray-200'}`}>
               {s === 'all' ? 'All Status' : s.charAt(0).toUpperCase() + s.slice(1)}
             </button>
           ))}
@@ -725,7 +725,7 @@ const AdminDashboard = () => {
         <div className="flex gap-2">
           {['all', 'critical', 'high', 'moderate', 'low'].map(u => (
             <button key={u} onClick={() => setRequestUrgencyFilter(u)}
-              className={`px-3 py-2 rounded-lg text-xs font-medium transition-colors ${requestUrgencyFilter === u ? 'bg-orange-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'}`}>
+              className={`px-3 py-2 rounded-lg text-xs font-medium transition-colors ${requestUrgencyFilter === u ? 'bg-orange-600 text-white' : 'bg-white dark:bg-slate-900 transition-colors text-gray-600 hover:bg-gray-100 border border-gray-200'}`}>
               {u === 'all' ? 'All Urgency' : u.charAt(0).toUpperCase() + u.slice(1)}
             </button>
           ))}
@@ -742,7 +742,7 @@ const AdminDashboard = () => {
       </div>
 
       {/* Requests Table */}
-      <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+      <div className="bg-white dark:bg-slate-900 transition-colors rounded-xl border border-gray-100 overflow-hidden">
         {filteredRequests.length === 0 ? (
           <div className="text-center py-12 text-gray-400">No requests match your filters</div>
         ) : (
@@ -823,7 +823,7 @@ const AdminDashboard = () => {
     <div className="space-y-6">
       <h2 className="text-xl font-bold text-gray-900">Settings</h2>
 
-      <div className="bg-white rounded-xl border border-gray-100 p-6 max-w-lg">
+      <div className="bg-white dark:bg-slate-900 transition-colors rounded-xl border border-gray-100 p-6 max-w-lg">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Admin Profile</h3>
         <dl className="space-y-4">
           <div>
@@ -888,7 +888,7 @@ const AdminDashboard = () => {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Monthly Growth Compare Chart */}
-          <div className="bg-white rounded-2xl border border-gray-100 p-6 lg:col-span-2 flex flex-col justify-between shadow-sm">
+          <div className="bg-white dark:bg-slate-900 transition-colors rounded-2xl border border-gray-100 p-6 lg:col-span-2 flex flex-col justify-between shadow-sm">
             <div>
               <h3 className="text-base font-bold text-gray-900 mb-1">Monthly Platform Growth & Activity</h3>
               <p className="text-xs text-gray-400 font-medium mb-6">Comparison of user signups (Donors/Hospitals) against successful donations</p>
@@ -950,7 +950,7 @@ const AdminDashboard = () => {
           </div>
 
           {/* Urgency Distribution Doughnut-grid */}
-          <div className="bg-white rounded-2xl border border-gray-100 p-6 flex flex-col justify-between shadow-sm">
+          <div className="bg-white dark:bg-slate-900 transition-colors rounded-2xl border border-gray-100 p-6 flex flex-col justify-between shadow-sm">
             <div>
               <h3 className="text-base font-bold text-gray-900 mb-1">Request Urgency Ratios</h3>
               <p className="text-xs text-gray-400 font-medium mb-6">Urgency profile of active demands on the platform</p>
@@ -1001,7 +1001,7 @@ const AdminDashboard = () => {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Blood Type Registry Distribution */}
-          <div className="bg-white rounded-2xl border border-gray-100 p-6 lg:col-span-2 shadow-sm">
+          <div className="bg-white dark:bg-slate-900 transition-colors rounded-2xl border border-gray-100 p-6 lg:col-span-2 shadow-sm">
             <div className="mb-6">
               <h3 className="text-base font-bold text-gray-900 mb-1">Donor Registry Distribution</h3>
               <p className="text-xs text-gray-400 font-medium">Breakdown of registered voluntary donors by blood type</p>
@@ -1025,7 +1025,7 @@ const AdminDashboard = () => {
           </div>
 
           {/* Top Institutions by completed donations */}
-          <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm flex flex-col justify-between">
+          <div className="bg-white dark:bg-slate-900 transition-colors rounded-2xl border border-gray-100 p-6 shadow-sm flex flex-col justify-between">
             <div>
               <h3 className="text-base font-bold text-gray-900 mb-1">Top Performing Centers</h3>
               <p className="text-xs text-gray-400 font-medium mb-6">Hospitals & Blood Banks by completed donations volume</p>
@@ -1036,7 +1036,7 @@ const AdminDashboard = () => {
             ) : (
               <div className="space-y-4">
                 {adminAnalyticsData.topInstitutions.map((inst, index) => (
-                  <div key={inst.id} className="flex items-center justify-between p-3 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-100 transition-colors">
+                  <div key={inst.id} className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:bg-slate-700 border border-slate-100 dark:border-slate-800 transition-colors">
                     <div className="flex items-center gap-3 min-w-0">
                       <div className="w-6 h-6 rounded-full bg-red-100 text-red-700 text-xs font-black flex items-center justify-center flex-shrink-0">
                         {index + 1}
@@ -1081,11 +1081,11 @@ const AdminDashboard = () => {
       </div>
 
       {auditLogs.length === 0 ? (
-        <div className="text-center py-12 bg-white rounded-xl border border-gray-100 text-gray-400 text-sm italic">
+        <div className="text-center py-12 bg-white dark:bg-slate-900 transition-colors rounded-xl border border-gray-100 text-gray-400 text-sm italic">
           No audit logs recorded yet
         </div>
       ) : (
-        <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+        <div className="bg-white dark:bg-slate-900 transition-colors rounded-xl border border-gray-100 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
@@ -1181,7 +1181,7 @@ const AdminDashboard = () => {
           <p className="text-sm text-gray-500">Send updates, alerts, or donation drives to users across the platform.</p>
         </div>
 
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+        <div className="bg-white dark:bg-slate-900 transition-colors rounded-xl border border-gray-100 shadow-sm p-6">
           <form onSubmit={handleBroadcastSubmit} className="space-y-6">
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1229,7 +1229,7 @@ const AdminDashboard = () => {
                     className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
                   />
                 </div>
-                <div className="max-h-48 overflow-y-auto bg-white border border-gray-200 rounded-lg divide-y divide-gray-100">
+                <div className="max-h-48 overflow-y-auto bg-white dark:bg-slate-900 transition-colors border border-gray-200 rounded-lg divide-y divide-gray-100">
                   {availableUsers.map(u => (
                     <div key={u.id} className="flex items-center px-4 py-2 hover:bg-gray-50 cursor-pointer"
                          onClick={() => {
@@ -1316,7 +1316,7 @@ const AdminDashboard = () => {
   return (
     <div className="min-h-screen bg-gray-50 flex">
       {/* Sidebar */}
-      <aside className="w-64 bg-white border-r border-gray-200 flex flex-col min-h-screen">
+      <aside className="w-64 bg-white dark:bg-slate-900 transition-colors border-r border-gray-200 flex flex-col min-h-screen">
         <div className="p-6 border-b border-gray-200">
           <div className="flex items-center justify-between">
             <div>
@@ -1336,7 +1336,7 @@ const AdminDashboard = () => {
 
               {/* Notification Dropdown */}
               {notifOpen && (
-                <div className="absolute left-0 top-full mt-2 w-80 bg-white rounded-xl shadow-2xl border border-gray-200 z-50 overflow-hidden">
+                <div className="absolute left-0 top-full mt-2 w-80 bg-white dark:bg-slate-900 transition-colors rounded-xl shadow-2xl border border-gray-200 z-50 overflow-hidden">
                   <div className="p-4 border-b border-gray-100 flex items-center justify-between">
                     <h3 className="text-sm font-bold text-gray-900">Pending Approvals</h3>
                     <span className="text-xs text-gray-400">{pendingNotifs.length} total</span>
@@ -1427,7 +1427,7 @@ const AdminDashboard = () => {
       {/* Blood Request Detail Modal */}
       {selectedRequest && (
         <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+          <div className="bg-white dark:bg-slate-900 transition-colors rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
             <div className="p-6">
               {/* Modal Header */}
               <div className="flex justify-between items-start mb-6">
@@ -1492,7 +1492,7 @@ const AdminDashboard = () => {
       {/* Institution Detail Modal */}
       {selectedInstitution && (
         <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+          <div className="bg-white dark:bg-slate-900 transition-colors rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
             <div className="p-6">
               {/* Modal Header */}
               <div className="flex justify-between items-start mb-6">
@@ -1616,7 +1616,7 @@ const AdminDashboard = () => {
       {/* User Detail Modal */}
       {selectedUser && (
         <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl max-w-2xl w-full shadow-2xl">
+          <div className="bg-white dark:bg-slate-900 transition-colors rounded-2xl max-w-2xl w-full shadow-2xl">
             <div className="p-6">
               {/* Modal Header */}
               <div className="flex justify-between items-start mb-6 border-b border-gray-100 pb-4">

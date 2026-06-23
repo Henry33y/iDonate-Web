@@ -17,6 +17,8 @@ import InstitutionUnderReview from './pages/InstitutionUnderReview';
 import AdminLogin from './pages/AdminLogin';
 import AdminDashboard from './pages/AdminDashboard';
 import AdminProtectedRoute from './components/AdminProtectedRoute';
+import PrivacyPolicy from './pages/PrivacyPolicy';
+import TermsOfService from './pages/TermsOfService';
 
 // Layout wrapper that hides Navbar/Footer on dashboard routes
 function AppLayout() {
@@ -63,6 +65,8 @@ function AppLayout() {
               </AdminProtectedRoute>
             }
           />
+          <Route path="/privacy" element={<PrivacyPolicy />} />
+          <Route path="/terms" element={<TermsOfService />} />
         </Routes>
       </main>
       {!isDashboard && <Footer />}

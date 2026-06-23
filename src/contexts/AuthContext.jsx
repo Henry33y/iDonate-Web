@@ -40,6 +40,39 @@ export function AuthProvider({ children }) {
     }
   }
 
+  async function signup(email, password, fullName) {
+    try {
+      // Sign up the user
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name: fullName,
+            user_type: 'donor',
+          },
+        },
+      });
+      if (error) throw error;
+
+      // Record consent
+      if (data.user) {
+        await supabase.from('user_consents').upsert({
+          user_id: data.user.id,
+          accepted_privacy_policy: true,
+          accepted_terms: true,
+          accepted_at: new Date().toISOString(),
+        });
+      }
+
+      toast.success('Successfully registered!');
+      return data;
+    } catch (error) {
+      toast.error('Failed to register: ' + error.message);
+      throw error;
+    }
+  }
+
   async function loginWithGoogle() {
     try {
       const { error } = await supabase.auth.signInWithOAuth({
@@ -70,6 +103,7 @@ export function AuthProvider({ children }) {
   const value = {
     currentUser,
     login,
+    signup,
     loginWithGoogle,
     logout,
   };

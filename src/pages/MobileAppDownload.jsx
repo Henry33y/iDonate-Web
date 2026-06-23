@@ -1,5 +1,9 @@
 import { ArrowDownTrayIcon, DevicePhoneMobileIcon, HeartIcon, UserPlusIcon } from '@heroicons/react/24/outline';
-import mobileAppPreview from '../assets/mobile-app-preview.svg';
+import mobileAppPreview from '../assets/mobileAppPreview.png';
+
+// Get your Supabase Storage URL after uploading the APK
+// Format: https://[project-id].supabase.co/storage/v1/object/public/[bucket-name]/[file-path]
+const ANDROID_APK_URL = import.meta.env.VITE_APK_URL || 'https://drive.google.com/file/d/1MBBbubx_LYd_JygSyltuA7Hh9LeLBvKL/view?usp=drive_link';
 
 const MobileAppDownload = () => {
   return (
@@ -20,19 +24,22 @@ const MobileAppDownload = () => {
         {/* Download Buttons */}
         <div className="mt-12 flex flex-col sm:flex-row justify-center gap-4">
           <a
-            href="#"
+            href={ANDROID_APK_URL}
+            download="iDonate.apk"
             className="inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-red-600 hover:bg-red-700"
           >
             <ArrowDownTrayIcon className="h-5 w-5 mr-2" />
             Download for Android
           </a>
-          <a
-            href="#"
+          {/* <a
+            href="https://apps.apple.com"
+            target="_blank"
+            rel="noopener noreferrer"
             className="inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-red-600 hover:bg-red-700"
           >
             <ArrowDownTrayIcon className="h-5 w-5 mr-2" />
             Download for iOS
-          </a>
+          </a> */}
         </div>
 
         {/* App Benefits */}

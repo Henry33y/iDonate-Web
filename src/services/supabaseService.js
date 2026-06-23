@@ -418,6 +418,7 @@ export const getInstitutionDonations = async (institutionId) => {
                     full_name,
                     phone_number,
                     avatar_url,
+                    default_anonymous,
                     donors!donors_id_fkey (
                         blood_type
                     )
@@ -727,6 +728,127 @@ export const updateBloodInventory = async (institutionId, bloodType, unitsCount)
     } catch (error) {
         throw new Error(error.message);
     }
+};
+
+// ─── Messaging Functions ─────────────────────────────────────────────
+
+/** Get all appointment conversations for an institution */
+export const getInstitutionConversations = async (institutionId) => {
+    const { data, error } = await supabase
+        .from('conversations')
+        .select(`
+            *,
+            donations:appointment_id (
+                id,
+                scheduled_date,
+                status,
+                donor_id
+            ),
+            profiles:user_id (
+                full_name,
+                default_anonymous,
+                avatar_url
+            ),
+            messages (
+                id,
+                message,
+                created_at,
+                sender_id,
+                read_at
+            )
+        `)
+        .eq('institution_id', institutionId)
+        .order('updated_at', { ascending: false });
+
+    if (error) throw new Error(error.message);
+
+    return (data || []).map((conv) => {
+        const sortedMessages = [...(conv.messages || [])].sort(
+            (a, b) => new Date(a.created_at) - new Date(b.created_at)
+        );
+        const lastMessage = sortedMessages[sortedMessages.length - 1] || null;
+        const unreadCount = sortedMessages.filter(
+            (m) => m.sender_id !== institutionId && !m.read_at
+        ).length;
+
+        return {
+            ...conv,
+            messages: sortedMessages,
+            lastMessage,
+            unreadCount,
+        };
+    });
+};
+
+/** Get or create a conversation for a donation appointment */
+export const getOrCreateConversation = async (appointmentId, institutionId, userId) => {
+    const { data: existing, error: fetchError } = await supabase
+        .from('conversations')
+        .select('*')
+        .eq('appointment_id', appointmentId)
+        .maybeSingle();
+
+    if (fetchError) throw new Error(fetchError.message);
+    if (existing) return existing;
+
+    const { data: created, error: createError } = await supabase
+        .from('conversations')
+        .insert({
+            appointment_id: appointmentId,
+            institution_id: institutionId,
+            user_id: userId,
+        })
+        .select()
+        .single();
+
+    if (createError) throw new Error(createError.message);
+    return created;
+};
+
+/** Get all messages in a conversation */
+export const getConversationMessages = async (conversationId) => {
+    const { data, error } = await supabase
+        .from('messages')
+        .select('*')
+        .eq('conversation_id', conversationId)
+        .order('created_at', { ascending: true });
+
+    if (error) throw new Error(error.message);
+    return data || [];
+};
+
+/** Send a message in a conversation */
+export const sendConversationMessage = async (conversationId, senderId, messageText) => {
+    const { data, error } = await supabase
+        .from('messages')
+        .insert({
+            conversation_id: conversationId,
+            sender_id: senderId,
+            message: messageText,
+        })
+        .select()
+        .single();
+
+    if (error) throw new Error(error.message);
+
+    await supabase
+        .from('conversations')
+        .update({ updated_at: new Date().toISOString() })
+        .eq('id', conversationId);
+
+    return data;
+};
+
+/** Mark unread donor messages as read for an institution */
+export const markConversationMessagesRead = async (conversationId, institutionId) => {
+    const { error } = await supabase
+        .from('messages')
+        .update({ read_at: new Date().toISOString() })
+        .eq('conversation_id', conversationId)
+        .neq('sender_id', institutionId)
+        .is('read_at', null);
+
+    if (error) throw new Error(error.message);
 };
 
 /** Fetch notifications for a user */

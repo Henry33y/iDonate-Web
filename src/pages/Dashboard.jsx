@@ -18,6 +18,7 @@ import {
   ChevronRightIcon,
   ChevronDownIcon,
   Cog6ToothIcon,
+  ChatBubbleLeftRightIcon,
 } from '@heroicons/react/24/outline';
 import {
   getInstitutionProfile,
@@ -38,9 +39,16 @@ import {
   updateBloodInventory,
   getUserNotifications,
 } from '../services/supabaseService';
+import AppointmentMessages from '../components/AppointmentMessages';
 
 const BLOOD_TYPES = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
 const URGENCY_LEVELS = ['low', 'moderate', 'high', 'critical'];
+
+const getDonorLabel = (profile) => {
+  if (!profile) return 'Unknown';
+  if (profile.default_anonymous) return 'Anonymous Donor';
+  return profile.full_name || 'Unknown';
+};
 
 const Dashboard = () => {
   const { currentUser, logout } = useAuth();
@@ -104,6 +112,7 @@ const Dashboard = () => {
   const [broadcastNotifications, setBroadcastNotifications] = useState([]);
   const lastSeenRef = useRef(localStorage.getItem('institution_notification_last_seen'));
   const [newActivityCount, setNewActivityCount] = useState(0);
+  const [messageAppointmentId, setMessageAppointmentId] = useState(null);
 
   const recalcNewActivity = useCallback((activityList, broadcastList) => {
     const since = lastSeenRef.current;
@@ -130,8 +139,11 @@ const Dashboard = () => {
       created_at: n.created_at,
       title: n.title,
       message: n.message,
-      isBroadcast: true,
-      type: n.type
+      isBroadcast: n.type === 'system_broadcast',
+      isMessage: n.type === 'appointment_message',
+      type: n.type,
+      appointmentId: n.data?.appointmentId || n.data?.appointment_id || null,
+      conversationId: n.data?.conversationId || n.data?.conversation_id || null,
     }));
 
     return [...act, ...bcast].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
@@ -217,12 +229,26 @@ const Dashboard = () => {
         )
         .on(
           'postgres_changes',
-          { event: '*', schema: 'public', table: 'notifications', filter: `user_id=eq.${institutionId}` },
+          { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${institutionId}` },
           (payload) => {
-            if (payload.eventType === 'INSERT') {
-              toast.info(`New broadcast: ${payload.new?.title || 'Notice'}`);
+            const n = payload.new;
+            if (!n) return;
+
+            setBroadcastNotifications(prev => {
+              if (prev.some(item => item.id === n.id)) return prev;
+              return [n, ...prev];
+            });
+
+            const since = lastSeenRef.current;
+            if (!since || new Date(n.created_at) > new Date(since)) {
+              setNewActivityCount(prev => prev + 1);
             }
-            loadDashboardDataRef.current?.();
+
+            if (n.type === 'appointment_message') {
+              toast.info(n.title);
+            } else {
+              toast.info(`New notification: ${n?.title || 'Notice'}`);
+            }
           }
         )
         .subscribe();
@@ -504,6 +530,19 @@ const Dashboard = () => {
   }, [bloodInventory]);
 
   const DAYS_OF_WEEK = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+  const handleOpenAppointmentMessage = (donationId) => {
+    setMessageAppointmentId(donationId);
+    setActiveTab('messages');
+  };
+
+  const handleNotificationItemClick = useCallback((item) => {
+    if (item.isMessage && item.appointmentId) {
+      handleOpenAppointmentMessage(item.appointmentId);
+      setShowNotifications(false);
+      resetNotificationBadge();
+    }
+  }, [resetNotificationBadge]);
 
   const urgencyColor = (l) => ({ critical: 'bg-red-100 text-red-700', high: 'bg-orange-100 text-orange-700', moderate: 'bg-amber-100 text-amber-700', low: 'bg-emerald-100 text-emerald-700' }[l] || 'bg-gray-100 text-gray-700');
   const statusColor = (s) => ({ open: 'bg-blue-100 text-blue-700', matched: 'bg-purple-100 text-purple-700', in_progress: 'bg-amber-100 text-amber-700', completed: 'bg-emerald-100 text-emerald-700', cancelled: 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300', expired: 'bg-slate-100 dark:bg-slate-700 text-slate-400' }[s] || 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200');
@@ -944,8 +983,10 @@ const Dashboard = () => {
                                 </div>
                               )}
                               <div>
-                                <p className="text-sm font-bold text-slate-800 dark:text-slate-100">{d.profiles?.full_name || 'Unknown'}</p>
-                                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">{d.profiles?.phone_number || ''}</p>
+                                <p className="text-sm font-bold text-slate-800 dark:text-slate-100">{getDonorLabel(d.profiles)}</p>
+                                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                                  {d.profiles?.default_anonymous ? '' : (d.profiles?.phone_number || '')}
+                                </p>
                               </div>
                             </div>
                           </td>
@@ -968,6 +1009,15 @@ const Dashboard = () => {
                           </td>
                           <td className="px-6 py-4 text-right">
                             <div className="flex items-center justify-end gap-2">
+                              {['scheduled', 'confirmed'].includes(d.status) && d.donor_id && (
+                                <button
+                                  onClick={() => handleOpenAppointmentMessage(d.id)}
+                                  className="px-3 py-1.5 text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 rounded-lg transition-colors inline-flex items-center gap-1"
+                                >
+                                  <ChatBubbleLeftRightIcon className="h-3.5 w-3.5" />
+                                  Message
+                                </button>
+                              )}
                               {d.status === 'scheduled' && (
                                 <button onClick={() => handleDonationAction(d.id, 'confirmed')}
                                   className="px-3 py-1.5 text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors">Confirm</button>
@@ -1059,6 +1109,15 @@ const Dashboard = () => {
               </div>
             )}
           </div>
+        );
+
+      case 'messages':
+        return (
+          <AppointmentMessages
+            institutionId={institutionId}
+            donations={donations}
+            initialAppointmentId={messageAppointmentId}
+          />
         );
 
       case 'analytics':
@@ -1552,6 +1611,7 @@ const Dashboard = () => {
               { key: 'create', icon: PlusIcon, label: 'Create Request' },
               { key: 'requests', icon: ClipboardDocumentListIcon, label: 'Manage Requests' },
               { key: 'donations', icon: CalendarDaysIcon, label: 'Appointments' },
+              { key: 'messages', icon: ChatBubbleLeftRightIcon, label: 'Messages' },
               { key: 'analytics', icon: ChartBarIcon, label: 'Analytics' },
             ].map((tab) => {
               const Icon = tab.icon;
@@ -1623,7 +1683,7 @@ const Dashboard = () => {
           <header className="h-24 bg-white dark:bg-slate-900 transition-colors/60 backdrop-blur-md border-b border-slate-100 dark:border-slate-800/50 flex items-center justify-between px-8 z-10 sticky top-0">
             <div>
               <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
-                {{ home: 'Overview', create: 'Create Request', requests: 'Manage Requests', donations: 'Appointments', slots: 'Operating Slots', inventory: 'Blood Inventory', analytics: 'Analytics', profile: 'Institution Profile' }[activeTab]}
+                {{ home: 'Overview', create: 'Create Request', requests: 'Manage Requests', donations: 'Appointments', messages: 'Appointment Messages', slots: 'Operating Slots', inventory: 'Blood Inventory', analytics: 'Analytics', profile: 'Institution Profile' }[activeTab]}
               </h1>
               <p className="text-sm font-medium text-slate-500 dark:text-slate-400 mt-1">{new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
             </div>
@@ -1657,10 +1717,29 @@ const Dashboard = () => {
                       ) : (
                         <div className="divide-y divide-slate-50">
                           {combinedNotifications.slice(0, 15).map(item => (
-                            <div key={item.id} className="p-4 hover:bg-slate-50 dark:bg-slate-800/80 transition-colors flex gap-4 items-start">
+                            <div
+                              key={item.id}
+                              role={item.isMessage && item.appointmentId ? 'button' : undefined}
+                              tabIndex={item.isMessage && item.appointmentId ? 0 : undefined}
+                              onClick={() => handleNotificationItemClick(item)}
+                              onKeyDown={(e) => {
+                                if (item.isMessage && item.appointmentId && (e.key === 'Enter' || e.key === ' ')) {
+                                  handleNotificationItemClick(item);
+                                }
+                              }}
+                              className={`p-4 hover:bg-slate-50 dark:bg-slate-800/80 transition-colors flex gap-4 items-start ${item.isMessage && item.appointmentId ? 'cursor-pointer' : ''}`}
+                            >
                               <div className={`w-2 h-2 mt-1.5 rounded-full flex-shrink-0 ${new Date(item.created_at) > new Date(lastSeenRef.current || 0) ? 'bg-rose-500' : 'bg-slate-200'}`}></div>
                               <div className="min-w-0 flex-1">
-                                {item.isBroadcast ? (
+                                {item.isMessage ? (
+                                  <div>
+                                    <div className="flex items-center gap-2 mb-1">
+                                      <span className="px-2 py-0.5 rounded-md bg-rose-100 text-rose-700 text-[9px] font-black uppercase tracking-wider">Message</span>
+                                      <span className="font-bold text-slate-900 dark:text-white truncate block text-sm">{item.title}</span>
+                                    </div>
+                                    <p className="text-sm text-slate-600 dark:text-slate-300 leading-snug break-words">{item.message}</p>
+                                  </div>
+                                ) : item.isBroadcast ? (
                                   <div>
                                     <div className="flex items-center gap-2 mb-1">
                                       <span className="px-2 py-0.5 rounded-md bg-purple-100 text-purple-700 text-[9px] font-black uppercase tracking-wider">Broadcast</span>

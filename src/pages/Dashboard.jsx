@@ -109,6 +109,7 @@ const Dashboard = () => {
   const [broadcastNotifications, setBroadcastNotifications] = useState([]);
   const lastSeenRef = useRef(localStorage.getItem('institution_notification_last_seen'));
   const [newActivityCount, setNewActivityCount] = useState(0);
+  const activityRef = useRef([]);
 
   const recalcNewActivity = useCallback((activityList, broadcastList) => {
     const since = lastSeenRef.current;
@@ -180,7 +181,7 @@ const Dashboard = () => {
     try { const statsData = await getInstitutionStats(institutionId, requests, donationsData); setStats(statsData); }
     catch (e) { console.error('Stats compute failed:', e); }
 
-    try { activityData = await getRecentActivity(institutionId, 20); setActivity(activityData); }
+    try { activityData = await getRecentActivity(institutionId, 20); activityRef.current = activityData; setActivity(activityData); }
     catch (e) { console.error('Activity fetch failed:', e); }
 
     try { bcastData = await getUserNotifications(institutionId); setBroadcastNotifications(bcastData); }
@@ -225,9 +226,32 @@ const Dashboard = () => {
           { event: '*', schema: 'public', table: 'notifications', filter: `user_id=eq.${institutionId}` },
           (payload) => {
             if (payload.eventType === 'INSERT') {
-              toast.info(`New broadcast: ${payload.new?.title || 'Notice'}`);
+              const newNotification = payload.new;
+              toast.info(newNotification?.type === 'appointment_message'
+                ? 'New appointment message received.'
+                : `New notification: ${newNotification?.title || 'Notice'}`
+              );
+
+              if (newNotification) {
+                setBroadcastNotifications(prev => {
+                  const next = [
+                    newNotification,
+                    ...prev.filter(item => item.id !== newNotification.id)
+                  ].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+                  recalcNewActivity(activityRef.current, next);
+                  return next;
+                });
+              }
+
+              return;
             }
-            loadDashboardDataRef.current?.();
+
+            getUserNotifications(institutionId)
+              .then(data => {
+                setBroadcastNotifications(data);
+                recalcNewActivity(activityRef.current, data);
+              })
+              .catch(e => console.error('Notification refresh failed:', e));
           }
         )
         .subscribe();
@@ -236,7 +260,7 @@ const Dashboard = () => {
         supabase.removeChannel(realtimeSubscription);
       };
     }
-  }, [institutionId, loadDashboardData]);
+  }, [institutionId, loadDashboardData, recalcNewActivity]);
 
   const handleLogout = async () => {
     try { await logout(); navigate('/'); } catch { toast.error('Failed to log out'); }

@@ -256,7 +256,7 @@ const AppointmentMessages = ({ institutionId, donations = [], initialAppointment
     setSelectedId(conversationId);
     clearConversationUnread(conversationId);
 
-    if (conversationId === selectedId && institutionId) {
+    if (institutionId) {
       try {
         await markConversationMessagesRead(conversationId, institutionId);
         await loadConversations();
@@ -304,11 +304,11 @@ const AppointmentMessages = ({ institutionId, donations = [], initialAppointment
   }
 
   return (
-    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800 overflow-hidden min-h-[600px] flex flex-col lg:flex-row">
+    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 h-full">
+      <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800 overflow-hidden h-[calc(100vh-200px)] flex flex-col lg:flex-row">
         {/* Conversation List */}
-        <div className="w-full lg:w-96 border-b lg:border-b-0 lg:border-r border-slate-100 dark:border-slate-800 flex flex-col">
-          <div className="p-5 border-b border-slate-100 dark:border-slate-800">
+        <div className="w-full lg:w-96 border-b lg:border-b-0 lg:border-r border-slate-100 dark:border-slate-800 flex flex-col h-full">
+          <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex-shrink-0">
             <h2 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
               <ChatBubbleLeftRightIcon className="h-5 w-5 text-rose-500" />
               Appointment Messages
@@ -318,7 +318,7 @@ const AppointmentMessages = ({ institutionId, donations = [], initialAppointment
             </p>
           </div>
 
-          <div className="flex-1 overflow-y-auto max-h-[280px] lg:max-h-none">
+          <div className="flex-1 overflow-y-auto">
             {conversations.length === 0 ? (
               <div className="p-8 text-center text-slate-400">
                 <ChatBubbleLeftRightIcon className="h-12 w-12 mx-auto mb-3 opacity-20" />
@@ -385,7 +385,7 @@ const AppointmentMessages = ({ institutionId, donations = [], initialAppointment
           </div>
 
           {messageableAppointments.length > 0 && (
-            <div className="border-t border-slate-100 dark:border-slate-800 p-4 bg-slate-50/50 dark:bg-slate-800/30">
+            <div className="border-t border-slate-100 dark:border-slate-800 p-4 bg-slate-50/50 dark:bg-slate-800/30 flex-shrink-0">
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-3">
                 Start a conversation
               </p>
@@ -418,7 +418,7 @@ const AppointmentMessages = ({ institutionId, donations = [], initialAppointment
         </div>
 
         {/* Chat Panel */}
-        <div className="flex-1 flex flex-col min-h-[400px]">
+        <div className="flex-1 flex flex-col h-full">
           {!selectedConversation ? (
             <div className="flex-1 flex flex-col items-center justify-center text-slate-400 p-8">
               <UserCircleIcon className="h-16 w-16 mb-4 opacity-20" />
@@ -429,7 +429,7 @@ const AppointmentMessages = ({ institutionId, donations = [], initialAppointment
             </div>
           ) : (
             <>
-              <div className="p-5 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30">
+              <div className="p-5 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 flex-shrink-0">
                 <p className="text-base font-black text-slate-900 dark:text-white">
                   {getDonorDisplayName(selectedConversation.profiles)}
                 </p>
@@ -495,7 +495,7 @@ const AppointmentMessages = ({ institutionId, donations = [], initialAppointment
                 <div ref={messagesEndRef} />
               </div>
 
-              <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900">
+              <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 flex-shrink-0">
                 <div className="flex flex-wrap gap-2 mb-3">
                   {REMINDER_TEMPLATES.map((template) => (
                     <button

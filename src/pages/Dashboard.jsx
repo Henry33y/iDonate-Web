@@ -813,10 +813,9 @@ const Dashboard = () => {
             {/* Quick Actions & Verification Alert */}
             <div className="flex flex-col md:flex-row gap-4">
               <button onClick={() => { setFormData(f => ({ ...f, urgency_level: 'critical' })); setActiveTab('create'); }}
-                className="group relative overflow-hidden flex-1 inline-flex items-center justify-center px-6 py-4 bg-gradient-to-r from-rose-500 to-red-600 text-white text-sm font-bold rounded-2xl hover:shadow-lg hover:shadow-red-500/30 transition-all duration-300 transform hover:-translate-y-0.5">
-                <div className="absolute inset-0 bg-white dark:bg-slate-900 transition-colors/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-in-out"></div>
-                <PlusIcon className="h-5 w-5 mr-2 relative z-10" />
-                <span className="relative z-10">Create Urgent Request</span>
+                className="flex-1 inline-flex items-center justify-center px-6 py-4 bg-gradient-to-r from-rose-500 to-red-600 text-white text-sm font-bold rounded-2xl hover:shadow-lg hover:shadow-red-500/30 transition-all duration-300 transform hover:-translate-y-0.5 hover:from-rose-600 hover:to-red-700">
+                <PlusIcon className="h-5 w-5 mr-2" />
+                <span>Create Urgent Request</span>
               </button>
               
               {awaitingVerification.length > 0 && (

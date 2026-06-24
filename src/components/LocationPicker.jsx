@@ -32,6 +32,28 @@ async function reverseGeocode(lat, lng) {
   }
 }
 
+/** Search Nominatim for locations */
+async function searchLocations(query) {
+  if (!query.trim()) return [];
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/search?format=jsonv2&q=${encodeURIComponent(query)}&limit=5&addressdetails=1`,
+      {
+        headers: {
+          'Accept-Language': 'en',
+          'User-Agent': 'iDonate-Web/1.0 (institution-registration)',
+        },
+      }
+    );
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data;
+  } catch (e) {
+    console.warn('Search failed:', e);
+    return [];
+  }
+}
+
 /** Click handler inside the Leaflet map */
 function MapClickHandler({ onMapClick }) {
   useMapEvents({
@@ -54,21 +76,29 @@ function FlyToPosition({ position, zoom }) {
 }
 
 /**
- * LocationPicker — two-mode location selector:
+ * LocationPicker — three-mode location selector:
  *   1. Detect GPS   — browser geolocation
  *   2. Select on Map — click on an interactive map
+ *   3. Search Location — type to search for an address
  *
  * Props:
  *   onChange({ latitude, longitude, locationName }) — called when location updates
  */
 export default function LocationPicker({ onChange }) {
-  const [mode, setMode] = useState('gps'); // 'gps' | 'map'
+  const [mode, setMode] = useState('gps'); // 'gps' | 'map' | 'search'
   const [coords, setCoords] = useState(null);
   const [locationName, setLocationName] = useState(null);
   const [gpsStatus, setGpsStatus] = useState('idle'); // 'idle' | 'detecting' | 'success' | 'error'
   const [userPosition, setUserPosition] = useState(null); // user's current position for map centering
   const [mapCenter, setMapCenter] = useState([7.9465, -1.0232]); // default: Ghana center
   const [mapZoom, setMapZoom] = useState(7);
+  
+  // Search-specific state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [suggestions, setSuggestions] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const searchTimeoutRef = useRef(null);
 
   // On mount: silently get user position for map centering
   useEffect(() => {
@@ -95,15 +125,48 @@ export default function LocationPicker({ onChange }) {
     }
   }, [coords, locationName]);
 
-  const updateLocation = async (lat, lng) => {
+  // Debounced search
+  useEffect(() => {
+    if (mode !== 'search') return;
+    
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+
+    if (searchQuery.trim()) {
+      searchTimeoutRef.current = setTimeout(async () => {
+        setIsSearching(true);
+        const results = await searchLocations(searchQuery);
+        setSuggestions(results);
+        setIsSearching(false);
+        setShowSuggestions(true);
+      }, 500);
+    } else {
+      setSuggestions([]);
+      setShowSuggestions(false);
+    }
+
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
+  }, [searchQuery, mode]);
+
+  const updateLocation = async (lat, lng, name = null) => {
     const rounded = {
       latitude: parseFloat(lat.toFixed(6)),
       longitude: parseFloat(lng.toFixed(6)),
     };
     setCoords(rounded);
-    setLocationName(null);
-    const name = await reverseGeocode(rounded.latitude, rounded.longitude);
-    setLocationName(name);
+    
+    if (name) {
+      setLocationName(name);
+    } else {
+      setLocationName(null);
+      const reverseName = await reverseGeocode(rounded.latitude, rounded.longitude);
+      setLocationName(reverseName);
+    }
   };
 
   const handleDetectGPS = () => {
@@ -126,13 +189,31 @@ export default function LocationPicker({ onChange }) {
     await updateLocation(lat, lng);
   };
 
+  const handleSearchInputChange = (e) => {
+    setSearchQuery(e.target.value);
+  };
+
+  const handleSuggestionClick = async (suggestion) => {
+    const lat = parseFloat(suggestion.lat);
+    const lng = parseFloat(suggestion.lon);
+    await updateLocation(lat, lng, suggestion.display_name);
+    setShowSuggestions(false);
+  };
+
+  const handleInputBlur = () => {
+    setTimeout(() => setShowSuggestions(false), 200);
+  };
+
   return (
     <div className="space-y-3">
       {/* Tab Switcher */}
       <div className="flex rounded-lg bg-gray-100 p-1">
         <button
           type="button"
-          onClick={() => setMode('gps')}
+          onClick={() => {
+            setMode('gps');
+            setShowSuggestions(false);
+          }}
           className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
             mode === 'gps'
               ? 'bg-white text-gray-900 shadow-sm'
@@ -143,7 +224,10 @@ export default function LocationPicker({ onChange }) {
         </button>
         <button
           type="button"
-          onClick={() => setMode('map')}
+          onClick={() => {
+            setMode('map');
+            setShowSuggestions(false);
+          }}
           className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
             mode === 'map'
               ? 'bg-white text-gray-900 shadow-sm'
@@ -151,6 +235,17 @@ export default function LocationPicker({ onChange }) {
           }`}
         >
           🗺️ Select on Map
+        </button>
+        <button
+          type="button"
+          onClick={() => setMode('search')}
+          className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+            mode === 'search'
+              ? 'bg-white text-gray-900 shadow-sm'
+              : 'text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          🔍 Search
         </button>
       </div>
 
@@ -237,6 +332,58 @@ export default function LocationPicker({ onChange }) {
               )}
             </MapContainer>
           </div>
+        </div>
+      )}
+
+      {/* Search Mode */}
+      {mode === 'search' && (
+        <div className="relative">
+          <label className="block text-sm font-medium text-gray-700 mb-2">Search for an address or location</label>
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={handleSearchInputChange}
+            onBlur={handleInputBlur}
+            onFocus={() => searchQuery.trim() && setShowSuggestions(true)}
+            placeholder="e.g., Korle Bu Teaching Hospital, Accra"
+            className="w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:border-red-500 focus:ring-red-500 bg-white text-gray-900"
+          />
+          
+          {isSearching && (
+            <div className="absolute right-3 top-10">
+              <svg className="animate-spin h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+            </div>
+          )}
+
+          {showSuggestions && suggestions.length > 0 && (
+            <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
+              {suggestions.map((suggestion, index) => (
+                <button
+                  key={index}
+                  type="button"
+                  onClick={() => handleSuggestionClick(suggestion)}
+                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors border-b border-gray-100 last:border-0"
+                >
+                  <div className="flex items-start">
+                    <svg className="h-5 w-5 mr-2 text-gray-400 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    <span className="truncate">{suggestion.display_name}</span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {showSuggestions && suggestions.length === 0 && searchQuery.trim() && !isSearching && (
+            <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg p-4">
+              <p className="text-sm text-gray-500 text-center">No locations found. Try a different search term.</p>
+            </div>
+          )}
         </div>
       )}
 

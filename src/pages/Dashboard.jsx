@@ -19,6 +19,7 @@ import {
   ChevronDownIcon,
   Cog6ToothIcon,
   ChatBubbleLeftRightIcon,
+  MegaphoneIcon,
 } from '@heroicons/react/24/outline';
 import {
   getInstitutionProfile,
@@ -38,6 +39,7 @@ import {
   getBloodInventory,
   updateBloodInventory,
   getUserNotifications,
+  sendInstitutionBroadcast,
 } from '../services/supabaseService';
 import AppointmentMessages from '../components/AppointmentMessages';
 
@@ -48,6 +50,13 @@ const getDonorLabel = (profile) => {
   if (!profile) return 'Unknown';
   if (profile.default_anonymous) return 'Anonymous Donor';
   return profile.full_name || 'Unknown';
+};
+
+const resolvePublicAvatarUrl = (avatarUrl) => {
+  if (!avatarUrl) return null;
+  if (avatarUrl.startsWith('http') || avatarUrl.startsWith('//')) return avatarUrl;
+  const { data } = supabase.storage.from('idonate').getPublicUrl(avatarUrl);
+  return data?.publicUrl || null;
 };
 
 const Dashboard = () => {
@@ -107,12 +116,20 @@ const Dashboard = () => {
   const [profileForm, setProfileForm] = useState({});
   const [profileSaving, setProfileSaving] = useState(false);
 
+  // Institution broadcast
+  const [broadcastTitle, setBroadcastTitle] = useState('');
+  const [broadcastMessage, setBroadcastMessage] = useState('');
+  const [broadcastTargetScope, setBroadcastTargetScope] = useState('all_donors');
+  const [broadcastType, setBroadcastType] = useState('institution_broadcast');
+  const [isBroadcasting, setIsBroadcasting] = useState(false);
+
   // Notifications panel
   const [showNotifications, setShowNotifications] = useState(false);
   const [broadcastNotifications, setBroadcastNotifications] = useState([]);
   const lastSeenRef = useRef(localStorage.getItem('institution_notification_last_seen'));
   const [newActivityCount, setNewActivityCount] = useState(0);
   const [messageAppointmentId, setMessageAppointmentId] = useState(null);
+  const [notificationFilter, setNotificationFilter] = useState('all');
   const activityRef = useRef([]);
   const refreshNotificationsRef = useRef(null);
   const knownNotificationIdsRef = useRef(new Set());
@@ -138,17 +155,21 @@ const Dashboard = () => {
       isBroadcast: false,
     }));
 
-    const bcast = broadcastNotifications.map(n => ({
-      id: `bcast-${n.id}`,
-      created_at: n.created_at,
-      title: n.title,
-      message: n.message,
-      isBroadcast: n.type === 'system_broadcast',
-      isMessage: n.type === 'appointment_message',
-      type: n.type,
-      appointmentId: n.data?.appointmentId || n.data?.appointment_id || null,
-      conversationId: n.data?.conversationId || n.data?.conversation_id || null,
-    }));
+    const bcast = broadcastNotifications.map(n => {
+      const kind = n.type === 'appointment_message' ? 'message' : 'broadcast';
+      return {
+        id: `bcast-${n.id}`,
+        created_at: n.created_at,
+        title: n.title,
+        message: n.message,
+        kind,
+        isBroadcast: kind === 'broadcast',
+        isMessage: kind === 'message',
+        type: n.type,
+        appointmentId: n.data?.appointmentId || n.data?.appointment_id || null,
+        conversationId: n.data?.conversationId || n.data?.conversation_id || null,
+      };
+    });
 
     return [...act, ...bcast].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
   }, [activity, broadcastNotifications]);
@@ -614,6 +635,13 @@ const Dashboard = () => {
     setActiveTab('messages');
   };
 
+  const filteredNotifications = useMemo(() => {
+    if (notificationFilter === 'all') return combinedNotifications;
+    if (notificationFilter === 'broadcasts') return combinedNotifications.filter((item) => item.kind === 'broadcast');
+    if (notificationFilter === 'messages') return combinedNotifications.filter((item) => item.kind === 'message');
+    return combinedNotifications.filter((item) => item.kind === 'activity');
+  }, [combinedNotifications, notificationFilter]);
+
   const handleNotificationItemClick = useCallback((item) => {
     if (item.isMessage && item.appointmentId) {
       handleOpenAppointmentMessage(item.appointmentId);
@@ -625,6 +653,132 @@ const Dashboard = () => {
   const urgencyColor = (l) => ({ critical: 'bg-red-100 text-red-700', high: 'bg-orange-100 text-orange-700', moderate: 'bg-amber-100 text-amber-700', low: 'bg-emerald-100 text-emerald-700' }[l] || 'bg-gray-100 text-gray-700');
   const statusColor = (s) => ({ open: 'bg-blue-100 text-blue-700', matched: 'bg-purple-100 text-purple-700', in_progress: 'bg-amber-100 text-amber-700', completed: 'bg-emerald-100 text-emerald-700', cancelled: 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300', expired: 'bg-slate-100 dark:bg-slate-700 text-slate-400' }[s] || 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200');
   const donationStatusColor = (s) => ({ scheduled: 'bg-blue-100 text-blue-700', confirmed: 'bg-indigo-100 text-indigo-700', completed: 'bg-emerald-100 text-emerald-700', cancelled: 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300', no_show: 'bg-rose-100 text-rose-700' }[s] || 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200');
+
+  const handleBroadcastSubmit = async (e) => {
+    e.preventDefault();
+    if (!broadcastTitle.trim() || !broadcastMessage.trim()) {
+      return toast.error('Title and message are required');
+    }
+    setIsBroadcasting(true);
+    try {
+      const count = await sendInstitutionBroadcast(institutionId, broadcastType, broadcastTitle, broadcastMessage, broadcastTargetScope);
+      toast.success(`Successfully sent notification to ${count} donors!`);
+      setBroadcastTitle('');
+      setBroadcastMessage('');
+      setBroadcastTargetScope('all_donors');
+      setBroadcastType('institution_broadcast');
+    } catch (err) {
+      toast.error('Failed to send broadcast: ' + err.message);
+    } finally {
+      setIsBroadcasting(false);
+    }
+  };
+
+  const renderBroadcasts = () => {
+    return (
+      <div className="space-y-6 max-w-4xl animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <div>
+          <h2 className="text-xl font-black text-slate-900 dark:text-white mb-1">Send Donor Announcements</h2>
+          <p className="text-sm text-slate-500 dark:text-slate-400">Notify your donors about important updates, reminders, or announcements.</p>
+        </div>
+
+        <div className="bg-white dark:bg-slate-900 transition-colors rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800 p-8">
+          <form onSubmit={handleBroadcastSubmit} className="space-y-6">
+            
+            <div>
+              <label className="block text-sm font-bold text-slate-700 dark:text-slate-200 mb-3">Target Audience</label>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {[
+                  { value: 'all_donors', label: 'All Donors', desc: 'Everyone who has visited your facility' },
+                  { value: 'upcoming_donors', label: 'Upcoming Appointments', desc: 'Donors with scheduled appointments' },
+                  { value: 'past_donors', label: 'Past Donors', desc: 'Only those who have completed donations' },
+                ].map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => setBroadcastTargetScope(option.value)}
+                    className={`p-4 rounded-2xl border-2 transition-all ${
+                      broadcastTargetScope === option.value
+                        ? 'border-rose-500 bg-rose-50 dark:bg-rose-950/20'
+                        : 'border-slate-200 dark:border-slate-700 hover:border-slate-300'
+                    }`}
+                  >
+                    <p className="font-bold text-slate-900 dark:text-white text-left mb-1">{option.label}</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 text-left">{option.desc}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-bold text-slate-700 dark:text-slate-200 mb-3">Announcement Type</label>
+              <select 
+                value={broadcastType}
+                onChange={(e) => setBroadcastType(e.target.value)}
+                className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl focus:outline-none focus:ring-2 focus:ring-rose-500 transition-all"
+              >
+                <option value="institution_broadcast">General Announcement</option>
+                <option value="donation_reminder">Donation Reminder</option>
+                <option value="urgent_update">Urgent Update</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-bold text-slate-700 dark:text-slate-200 mb-3">Subject</label>
+              <input 
+                type="text" 
+                value={broadcastTitle}
+                onChange={(e) => setBroadcastTitle(e.target.value)}
+                placeholder="e.g., Important: New Testing Protocol"
+                maxLength={100}
+                className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl focus:outline-none focus:ring-2 focus:ring-rose-500 transition-all"
+                required
+              />
+              <p className="text-xs text-slate-400 mt-1">{broadcastTitle.length}/100</p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-bold text-slate-700 dark:text-slate-200 mb-3">Message</label>
+              <textarea 
+                value={broadcastMessage}
+                onChange={(e) => setBroadcastMessage(e.target.value)}
+                placeholder="Write your announcement here... Include any important details, dates, or instructions."
+                rows={6}
+                maxLength={500}
+                className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl focus:outline-none focus:ring-2 focus:ring-rose-500 transition-all resize-none"
+                required
+              />
+              <p className="text-xs text-slate-400 mt-1">{broadcastMessage.length}/500</p>
+            </div>
+
+            <div className="flex gap-4">
+              <button 
+                type="submit" 
+                disabled={isBroadcasting}
+                className="flex-1 inline-flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-rose-500 to-red-600 text-white rounded-2xl hover:from-rose-600 hover:to-red-700 transition-all font-bold shadow-lg shadow-rose-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isBroadcasting ? (
+                  <><div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white"></div> Sending...</>
+                ) : (
+                  <><MegaphoneIcon className="h-5 w-5" /> Send Announcement</>
+                )}
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900 rounded-2xl p-5">
+          <div className="flex gap-3">
+            <BellIcon className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
+            <div className="text-sm">
+              <p className="font-bold text-blue-900 dark:text-blue-200">Donor Privacy & Communication</p>
+              <p className="text-blue-800 dark:text-blue-300 mt-1">All announcements respect donor privacy settings. Donors can manage notification preferences in their profile settings. Donations to institutions are tracked for follow-up communications only.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   const renderContent = () => {
     switch (activeTab) {
@@ -1054,7 +1208,7 @@ const Dashboard = () => {
                           <td className="px-6 py-4">
                             <div className="flex items-center gap-3">
                               {d.profiles?.avatar_url ? (
-                                <img src={d.profiles.avatar_url} alt="" className="w-10 h-10 rounded-full object-cover shadow-sm" />
+                                <img src={resolvePublicAvatarUrl(d.profiles.avatar_url)} alt="" className="w-10 h-10 rounded-full object-cover shadow-sm" />
                               ) : (
                                 <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-slate-500 dark:text-slate-400 text-sm font-black shadow-sm">
                                   {d.profiles?.full_name?.charAt(0) || '?'}
@@ -1197,6 +1351,9 @@ const Dashboard = () => {
             initialAppointmentId={messageAppointmentId}
           />
         );
+
+      case 'broadcasts':
+        return renderBroadcasts();
 
       case 'analytics':
         return (
@@ -1690,6 +1847,7 @@ const Dashboard = () => {
               { key: 'requests', icon: ClipboardDocumentListIcon, label: 'Manage Requests' },
               { key: 'donations', icon: CalendarDaysIcon, label: 'Appointments' },
               { key: 'messages', icon: ChatBubbleLeftRightIcon, label: 'Messages' },
+              { key: 'broadcasts', icon: MegaphoneIcon, label: 'Broadcasts' },
               { key: 'analytics', icon: ChartBarIcon, label: 'Analytics' },
             ].map((tab) => {
               const Icon = tab.icon;
@@ -1761,7 +1919,7 @@ const Dashboard = () => {
           <header className="h-24 bg-white dark:bg-slate-900 transition-colors/60 backdrop-blur-md border-b border-slate-100 dark:border-slate-800/50 flex items-center justify-between px-8 z-10 sticky top-0">
             <div>
               <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
-                {{ home: 'Overview', create: 'Create Request', requests: 'Manage Requests', donations: 'Appointments', messages: 'Appointment Messages', slots: 'Operating Slots', inventory: 'Blood Inventory', analytics: 'Analytics', profile: 'Institution Profile' }[activeTab]}
+                {{ home: 'Overview', create: 'Create Request', requests: 'Manage Requests', donations: 'Appointments', messages: 'Appointment Messages', broadcasts: 'Donor Announcements', analytics: 'Analytics', profile: 'Institution Profile' }[activeTab]}
               </h1>
               <p className="text-sm font-medium text-slate-500 dark:text-slate-400 mt-1">{new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
             </div>
@@ -1782,19 +1940,36 @@ const Dashboard = () => {
                 </button>
                 {showNotifications && (
                   <div className="absolute right-0 top-14 w-96 bg-white dark:bg-slate-900 transition-colors/90 backdrop-blur-2xl rounded-3xl shadow-[0_20px_40px_-15px_rgba(0,0,0,0.1)] border border-slate-100 dark:border-slate-800 z-50 overflow-hidden animate-in fade-in slide-in-from-top-4">
-                    <div className="p-5 border-b border-slate-100 dark:border-slate-800/60 bg-white dark:bg-slate-900 transition-colors/50 dark:bg-slate-900/50 flex items-center justify-between">
-                      <h3 className="text-sm font-black text-slate-900 dark:text-white">Recent Activity</h3>
-                      {newActivityCount > 0 && <span className="text-[10px] font-bold uppercase tracking-wider text-rose-500">{newActivityCount} New</span>}
+                    <div className="p-5 border-b border-slate-100 dark:border-slate-800/60 bg-white dark:bg-slate-900 transition-colors/50 dark:bg-slate-900/50">
+                      <div className="flex items-center justify-between gap-4">
+                        <div>
+                          <h3 className="text-sm font-black text-slate-900 dark:text-white">Recent Activity</h3>
+                          <p className="text-xs text-slate-500 dark:text-slate-400">Filter notifications by type.</p>
+                        </div>
+                        {newActivityCount > 0 && <span className="text-[10px] font-bold uppercase tracking-wider text-rose-500">{newActivityCount} New</span>}
+                      </div>
+                      <div className="mt-4 flex gap-2 flex-wrap">
+                        {['all', 'activity', 'messages', 'broadcasts'].map((filter) => (
+                          <button
+                            key={filter}
+                            type="button"
+                            onClick={() => setNotificationFilter(filter)}
+                            className={`px-3 py-1.5 text-[11px] font-bold rounded-full transition-colors ${notificationFilter === filter ? 'bg-rose-600 text-white' : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'}`}
+                          >
+                            {filter === 'all' ? 'All' : filter.charAt(0).toUpperCase() + filter.slice(1)}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                     <div className="max-h-[400px] overflow-y-auto">
-                      {combinedNotifications.length === 0 ? (
+                      {filteredNotifications.length === 0 ? (
                         <div className="p-8 text-center text-slate-400 text-sm font-medium flex flex-col items-center">
                           <BellIcon className="h-8 w-8 mb-2 opacity-20" />
-                          All caught up!
+                          No notifications in this category.
                         </div>
                       ) : (
-                        <div className="divide-y divide-slate-50">
-                          {combinedNotifications.slice(0, 15).map(item => (
+                        <div className="divide-y divide-slate-50 dark:divide-slate-800">
+                          {filteredNotifications.slice(0, 15).map(item => (
                             <div
                               key={item.id}
                               role={item.isMessage && item.appointmentId ? 'button' : undefined}
@@ -1805,9 +1980,9 @@ const Dashboard = () => {
                                   handleNotificationItemClick(item);
                                 }
                               }}
-                              className={`p-4 hover:bg-slate-50 dark:bg-slate-800/80 transition-colors flex gap-4 items-start ${item.isMessage && item.appointmentId ? 'cursor-pointer' : ''}`}
+                              className={`p-4 hover:bg-slate-50 dark:hover:bg-slate-800/80 transition-colors flex gap-4 items-start ${item.isMessage && item.appointmentId ? 'cursor-pointer' : ''}`}
                             >
-                              <div className={`w-2 h-2 mt-1.5 rounded-full flex-shrink-0 ${new Date(item.created_at) > new Date(lastSeenRef.current || 0) ? 'bg-rose-500' : 'bg-slate-200'}`}></div>
+                              <div className={`w-2 h-2 mt-1.5 rounded-full flex-shrink-0 ${new Date(item.created_at) > new Date(lastSeenRef.current || 0) ? 'bg-rose-500' : 'bg-slate-200 dark:bg-slate-600'}`}></div>
                               <div className="min-w-0 flex-1">
                                 {item.isMessage ? (
                                   <div>

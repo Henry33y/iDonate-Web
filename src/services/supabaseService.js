@@ -405,6 +405,23 @@ export const getInstitutionStats = async (institutionId, prefetchedRequests, pre
 
 // ─── Donation Functions ─────────────────────────────────────────────
 
+const resolvePublicAvatarUrl = (avatarUrl) => {
+    if (!avatarUrl) return null;
+    if (avatarUrl.startsWith('http') || avatarUrl.startsWith('//')) return avatarUrl;
+    const { data } = supabase.storage.from('idonate').getPublicUrl(avatarUrl);
+    return data?.publicUrl || null;
+};
+
+const normalizeProfileRecord = (profile) => {
+    if (!profile) return null;
+    const resolved = Array.isArray(profile) ? profile[0] || null : profile;
+    if (!resolved) return null;
+    return {
+        ...resolved,
+        avatar_url: resolvePublicAvatarUrl(resolved.avatar_url),
+    };
+};
+
 export const getInstitutionDonations = async (institutionId) => {
     console.log('[iDonate:Donations] Fetching donations for', institutionId);
 
@@ -443,6 +460,7 @@ export const getInstitutionDonations = async (institutionId) => {
             }
             return {
                 ...d,
+                profiles: normalizeProfileRecord(d.profiles),
                 donors: {
                     blood_type: bloodType
                 }
@@ -773,6 +791,7 @@ export const getInstitutionConversations = async (institutionId) => {
 
         return {
             ...conv,
+            profiles: normalizeProfileRecord(conv.profiles),
             messages: sortedMessages,
             lastMessage,
             unreadCount,
@@ -862,6 +881,24 @@ export const getUserNotifications = async (userId) => {
 
         if (error) throw error;
         return data || [];
+    } catch (error) {
+        throw new Error(error.message);
+    }
+};
+
+/** Send an institution broadcast to donors */
+export const sendInstitutionBroadcast = async (institutionId, type, title, message, targetScope = 'all_donors') => {
+    try {
+        const { data, error } = await supabase.rpc('send_institution_broadcast', {
+            p_institution_id: institutionId,
+            p_notification_type: type || 'institution_broadcast',
+            p_notification_title: title,
+            p_notification_message: message,
+            p_target_scope: targetScope
+        });
+
+        if (error) throw error;
+        return data || 0;
     } catch (error) {
         throw new Error(error.message);
     }

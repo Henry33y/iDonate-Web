@@ -84,15 +84,21 @@ const AppointmentMessages = ({ institutionId, donations = [], initialAppointment
     if (!institutionId) return;
     try {
       const data = await getInstitutionConversations(institutionId);
-      setConversations(data);
-      return data;
+      const normalized = data.map((conv) => {
+        if (conv.id === selectedId) {
+          return { ...conv, unreadCount: 0 };
+        }
+        return conv;
+      });
+      setConversations(normalized);
+      return normalized;
     } catch (err) {
       toast.error('Failed to load messages: ' + err.message);
       return [];
     } finally {
       setLoading(false);
     }
-  }, [institutionId]);
+  }, [institutionId, selectedId]);
 
   const loadMessages = useCallback(async (conversationId) => {
     if (!conversationId) return;
@@ -109,13 +115,14 @@ const AppointmentMessages = ({ institutionId, donations = [], initialAppointment
           : message
       ));
       clearConversationUnread(conversationId);
+      await loadConversations();
       scrollToBottom();
     } catch (err) {
       toast.error('Failed to load conversation: ' + err.message);
     } finally {
       setMessagesLoading(false);
     }
-  }, [institutionId, clearConversationUnread]);
+  }, [institutionId, clearConversationUnread, loadConversations]);
 
   useEffect(() => {
     loadConversations();
@@ -252,6 +259,7 @@ const AppointmentMessages = ({ institutionId, donations = [], initialAppointment
     if (conversationId === selectedId && institutionId) {
       try {
         await markConversationMessagesRead(conversationId, institutionId);
+        await loadConversations();
       } catch (err) {
         toast.error('Failed to mark messages as read: ' + err.message);
       }
@@ -329,6 +337,7 @@ const AppointmentMessages = ({ institutionId, donations = [], initialAppointment
                       })
                     : '—';
                   const isSelected = conv.id === selectedId;
+                  const displayUnreadCount = isSelected ? 0 : conv.unreadCount;
 
                   return (
                     <button
@@ -361,9 +370,9 @@ const AppointmentMessages = ({ institutionId, donations = [], initialAppointment
                               {conv.donations.status.replace('_', ' ')}
                             </span>
                           )}
-                          {conv.unreadCount > 0 && (
+                          {displayUnreadCount > 0 && (
                             <span className="bg-rose-500 text-white text-[10px] font-black px-1.5 py-0.5 rounded-full min-w-[1.25rem] text-center">
-                              {conv.unreadCount}
+                              {displayUnreadCount}
                             </span>
                           )}
                         </div>

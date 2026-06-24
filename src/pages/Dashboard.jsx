@@ -133,7 +133,8 @@ const Dashboard = () => {
   const activityRef = useRef([]);
   const refreshNotificationsRef = useRef(null);
   const knownNotificationIdsRef = useRef(new Set());
-  const toastedNotificationIdsRef = useRef(new Set());
+  // Initialize toasted notification IDs from localStorage
+  const toastedNotificationIdsRef = useRef(new Set(JSON.parse(localStorage.getItem('institution_toasted_notification_ids') || '[]')));
 
   const recalcNewActivity = useCallback((activityList, broadcastList) => {
     const since = lastSeenRef.current;
@@ -200,6 +201,8 @@ const Dashboard = () => {
     if (!notification?.id || toastedNotificationIdsRef.current.has(notification.id)) return;
 
     toastedNotificationIdsRef.current.add(notification.id);
+    // Persist toasted notification IDs to localStorage
+    localStorage.setItem('institution_toasted_notification_ids', JSON.stringify([...toastedNotificationIdsRef.current]));
     toast.info(getNotificationToastMessage(notification));
   }, [getNotificationToastMessage]);
 
@@ -214,6 +217,14 @@ const Dashboard = () => {
     }
 
     knownNotificationIdsRef.current = new Set(nextNotifications.map((notification) => notification.id));
+    // Add all notification IDs to toastedNotificationIdsRef when loading initially (so we don't toast old ones later)
+    if (!toastNew) {
+      nextNotifications.forEach(notification => {
+        toastedNotificationIdsRef.current.add(notification.id);
+      });
+      // Persist to localStorage
+      localStorage.setItem('institution_toasted_notification_ids', JSON.stringify([...toastedNotificationIdsRef.current]));
+    }
     setBroadcastNotifications(nextNotifications);
     recalcNewActivity(activityRef.current, nextNotifications);
   }, [recalcNewActivity, showNotificationToast]);
@@ -338,9 +349,6 @@ const Dashboard = () => {
         console.log(`[iDonate:Dashboard] Realtime status for ${channelName}:`, status);
         if (err) {
           console.error(`[iDonate:Dashboard] Realtime error for ${channelName}:`, err);
-        }
-        if (status === 'SUBSCRIBED') {
-          refreshNotificationsRef.current?.();
         }
         if (status === 'CHANNEL_ERROR') {
           console.warn('[iDonate:Dashboard] Realtime updates are not connected; using notification sync fallback.');

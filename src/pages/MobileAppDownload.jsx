@@ -87,7 +87,7 @@ const MobileAppDownload = () => {
             <img
               src={mobileAppPreview}
               alt="App Screenshot"
-              className="rounded-lg shadow-lg"
+              className="max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg rounded-lg shadow-lg"
             />
           </div>
         </div>

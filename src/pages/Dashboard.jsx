@@ -153,7 +153,10 @@ const Dashboard = () => {
       created_at: a.created_at,
       title: a.profiles?.full_name || 'A donor',
       message: `${a.status === 'scheduled' ? 'booked an appointment' : a.status === 'confirmed' ? 'confirmed their appointment' : a.status === 'completed' ? 'completed a donation' : a.status === 'cancelled' ? 'cancelled their appointment' : 'updated their appointment'}`,
+      kind: 'activity',
       isBroadcast: false,
+      donationId: a.id,
+      status: a.status,
     }));
 
     const bcast = broadcastNotifications.map(n => {
@@ -653,9 +656,14 @@ const Dashboard = () => {
   const handleNotificationItemClick = useCallback((item) => {
     if (item.isMessage && item.appointmentId) {
       handleOpenAppointmentMessage(item.appointmentId);
-      setShowNotifications(false);
-      resetNotificationBadge();
+    } else if (item.isBroadcast) {
+      setActiveTab('broadcasts');
+    } else {
+      setActiveTab('donations');
     }
+
+    setShowNotifications(false);
+    resetNotificationBadge();
   }, [resetNotificationBadge]);
 
   const urgencyColor = (l) => ({ critical: 'bg-red-100 text-red-700', high: 'bg-orange-100 text-orange-700', moderate: 'bg-amber-100 text-amber-700', low: 'bg-emerald-100 text-emerald-700' }[l] || 'bg-gray-100 text-gray-700');
@@ -1979,15 +1987,16 @@ const Dashboard = () => {
                           {filteredNotifications.slice(0, 15).map(item => (
                             <div
                               key={item.id}
-                              role={item.isMessage && item.appointmentId ? 'button' : undefined}
-                              tabIndex={item.isMessage && item.appointmentId ? 0 : undefined}
+                              role="button"
+                              tabIndex={0}
                               onClick={() => handleNotificationItemClick(item)}
                               onKeyDown={(e) => {
-                                if (item.isMessage && item.appointmentId && (e.key === 'Enter' || e.key === ' ')) {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                  e.preventDefault();
                                   handleNotificationItemClick(item);
                                 }
                               }}
-                              className={`p-4 hover:bg-slate-50 dark:hover:bg-slate-800/80 transition-colors flex gap-4 items-start ${item.isMessage && item.appointmentId ? 'cursor-pointer' : ''}`}
+                              className="p-4 hover:bg-slate-50 dark:hover:bg-slate-800/80 transition-colors flex gap-4 items-start cursor-pointer focus:outline-none focus:bg-slate-50 dark:focus:bg-slate-800/80"
                             >
                               <div className={`w-2 h-2 mt-1.5 rounded-full flex-shrink-0 ${new Date(item.created_at) > new Date(lastSeenRef.current || 0) ? 'bg-rose-500' : 'bg-slate-200 dark:bg-slate-600'}`}></div>
                               <div className="min-w-0 flex-1">
@@ -2014,7 +2023,11 @@ const Dashboard = () => {
                                   </p>
                                 )}
                                 <p className="text-[11px] font-semibold text-slate-400 mt-1 uppercase tracking-wider">{new Date(item.created_at).toLocaleString()}</p>
+                                <p className="text-[11px] font-semibold text-rose-500 mt-1">
+                                  {item.isMessage ? 'Open conversation' : item.isBroadcast ? 'View broadcasts' : 'View appointments'}
+                                </p>
                               </div>
+                              <ChevronRightIcon className="h-4 w-4 text-slate-300 dark:text-slate-600 mt-1 flex-shrink-0" />
                             </div>
                           ))}
                         </div>
